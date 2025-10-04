@@ -1,0 +1,89 @@
+# Configuración específica para Raspberry Pi + CAN HAT
+# Compatible con Waveshare RS485 CAN HAT, PiCAN2, AutoPi CAN HAT
+
+raspberry_pi:
+  # Hardware específico
+  can_hat: "waveshare_rs485_can"  # waveshare_rs485_can, pican2, autopi_can
+  spi_interface: "spi0"
+  interrupt_pin: 25
+  oscillator_freq: 16000000  # 16 MHz para la mayoría de HATs
+  
+  # Configuración CAN
+  can_interface: "can0"
+  bitrate: 250000  # Para Danfoss R13
+  sample_point: 0.875
+  restart_timeout: 100  # ms
+  
+  # Sistema operativo
+  os_config:
+    enable_spi: true
+    enable_i2c: false
+    gpu_memory: 16  # Mínima para aplicaciones industriales
+    disable_wifi: true  # Para mayor estabilidad
+    disable_bluetooth: true
+    
+# Configuración del gateway CAN
+can_gateway:
+  type: "raspberry_pi"
+  network:
+    ip_address: "192.168.1.150"  # IP fija recomendada
+    netmask: "255.255.255.0"
+    gateway: "192.168.1.1"
+    dns: ["8.8.8.8", "8.8.4.4"]
+  
+  # Configuración específica para Danfoss R13
+  danfoss_r13:
+    node_id: 1
+    heartbeat_interval: 1000  # ms
+    emergency_timeout: 500    # ms
+    max_retries: 3
+    
+    # Objetos CANopen específicos
+    control_word_index: "0x6040"
+    status_word_index: "0x6041"
+    operation_mode_index: "0x6060"
+    
+  # Configuración de seguridad
+  safety:
+    watchdog_timeout: 5000  # ms
+    emergency_stop_delay: 50  # ms máximo
+    heartbeat_monitoring: true
+    automatic_stop_on_error: true
+    
+# Monitoreo y logging
+monitoring:
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_file: "/var/log/k13_controller.log"
+  max_log_size: "10MB"
+  log_rotation: 5
+  
+  # Métricas de rendimiento
+  performance_monitoring: true
+  can_message_stats: true
+  latency_monitoring: true
+  
+# Hardware específico por modelo de HAT
+hat_configurations:
+  waveshare_rs485_can:
+    spi_device: "/dev/spidev0.0"
+    cs_pin: 8
+    interrupt_pin: 25
+    reset_pin: null
+    oscillator: 16000000
+    max_bitrate: 1000000
+    
+  pican2_duo:
+    spi_device: "/dev/spidev0.0"
+    cs_pin: 8
+    interrupt_pin: 25
+    can1_cs_pin: 7
+    can1_interrupt_pin: 24
+    oscillator: 16000000
+    isolation: true
+    
+  autopi_can:
+    spi_device: "/dev/spidev0.1"
+    cs_pin: 7
+    interrupt_pin: 6
+    oscillator: 16000000
+    automotive_grade: true
