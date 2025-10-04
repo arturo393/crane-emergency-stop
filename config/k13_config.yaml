@@ -1,0 +1,32 @@
+# Configuración del gateway para el receptor Danfoss R13
+gateway:
+  host: "192.168.1.100"  # IP del gateway Ethernet-a-CAN (ej. Raspberry Pi)
+  port: 9999             # Puerto TCP para la comunicación con el gateway
+  timeout: 5.0
+  retry_attempts: 3
+
+# Configuración del puente grúa
+crane:
+  max_speed: 100
+  default_speed: 50
+  acceleration_time: 2.0  # segundos para alcanzar velocidad máxima
+  safety_timeout: 30.0    # segundos antes de parada automática
+
+# Configuración de seguridad
+safety:
+  enable_emergency_stop: true
+  max_continuous_operation: 300  # segundos
+
+# Configuración de logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  file: "logs/r13_controller.log"
+  max_file_size: "10MB"
+  backup_count: 5
+
+# Configuración del bus CAN (para el gateway)
+can_bus:
+  interface: "can0"         # Interfaz CAN (ej. en Raspberry Pi)
+  bitrate: 250000           # Tasa de bits del bus CAN (verificar con R13)
+  protocol: "canopen"       # Protocolo de alto nivel sobre CAN
+

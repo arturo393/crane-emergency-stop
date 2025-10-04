@@ -1,0 +1,35 @@
+# Dependencias principales
+pyserial>=3.5
+numpy>=1.21.0
+pyyaml>=6.0
+
+# CANopen y comunicación CAN
+canopen>=2.2.0
+python-can>=4.2.0
+
+# Desarrollo y testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-asyncio>=0.21.0
+black>=22.0.0
+flake8>=5.0.0
+mypy>=1.0.0
+
+# Documentación
+sphinx>=5.0.0
+sphinx-rtd-theme>=1.0.0
+
+# Logging y monitoreo
+loguru>=0.6.0
+
+# Comunicación de red
+requests>=2.31.0
+aiohttp>=3.8.0
+
+# GUI (opcional)
+tkinter-page>=0.1.0
+PyQt5>=5.15.0
+
+# Hardware y comunicaciones (solo para Raspberry Pi)
+RPi.GPIO>=0.7.1  # Solo para Raspberry Pi
+gpiozero>=1.6.0  # Solo para Raspberry Pi

@@ -1,0 +1,91 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Ejecutar K13 Controller",
+            "type": "shell",
+            "command": "/Users/arturo/puente_grua/.venv/bin/python",
+            "args": ["src/k13_controller/main.py"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Ejecutar Tests",
+            "type": "shell", 
+            "command": "/Users/arturo/puente_grua/.venv/bin/python",
+            "args": ["-m", "pytest", "tests/", "-v"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Setup K13 - Configuración Interactiva",
+            "type": "shell",
+            "command": "/Users/arturo/puente_grua/.venv/bin/python",
+            "args": ["scripts/setup_k13.py", "setup"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Listar Puertos Serie",
+            "type": "shell",
+            "command": "/Users/arturo/puente_grua/.venv/bin/python",
+            "args": ["scripts/setup_k13.py", "list-ports"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Diagnósticos del Sistema",
+            "type": "shell",
+            "command": "/Users/arturo/puente_grua/.venv/bin/python",
+            "args": ["scripts/setup_k13.py", "diagnostics"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Instalar Dependencias",
+            "type": "shell",
+            "command": "/Users/arturo/puente_grua/.venv/bin/python",
+            "args": ["-m", "pip", "install", "-r", "requirements.txt"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        }
+    ]
+}
