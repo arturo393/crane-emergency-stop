@@ -580,7 +580,7 @@ Costo total estimado: €289 + €45 (envío) + 25% (impuestos) + $50.000 (gesti
 ## 📚 Referencias Técnicas
 
 - [CANopen Specification CiA 301](https://www.can-cia.org/standardization/technical-documents/)
-- [Danfoss R13 F Manual](../assets/RECEPTOR%20R13%20F.pdf)
+- [Danfoss R13 F Manual](../docs/RECEPTOR%20R13%20F.md)
 - [PEAK System Documentation](https://www.peak-system.com/quick/Documentation)
 - [Industrial Ethernet Standards](https://www.ieee.org/standards/)
 

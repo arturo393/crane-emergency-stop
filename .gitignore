@@ -23,7 +23,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Archivos grandes en assets/
+# Archivos grandes en assets/ (ahora convertidos a Markdown)
 assets/*.mp4
 assets/*.pdf
 assets/*.jpeg

@@ -214,7 +214,31 @@ status = controller.get_status()
 
 ---
 
-## 📊 Estado del Proyecto
+## � Documentación Convertida
+
+**Optimización de Documentación:** Los archivos PDF originales han sido convertidos a formato Markdown para reducir significativamente el tamaño del repositorio y mejorar la accesibilidad.
+
+### Archivos Convertidos
+
+| Documento Original | Tamaño Original | Versión Markdown | Tamaño Final | Reducción |
+|-------------------|----------------|------------------|--------------|-----------|
+| `BC292382016572en-000201.pdf` | 3.5 MB | [BC292382016572en-000201.md](docs/BC292382016572en-000201.md) | 17 KB | 99.5% |
+| `EMISOR IK3.pdf` | 528 KB | [EMISOR IK3.md](docs/EMISOR%20IK3.md) | 3.8 KB | 99.3% |
+| `Manual Gama TM70 Pupitre.pdf` | 22 MB | [Manual Gama TM70 Pupitre.md](docs/Manual%20Gama%20TM70%20Pupitre.md) | 190 KB | 99.1% |
+| `RECEPTOR R13 F.pdf` | 272 KB | [RECEPTOR R13 F.md](docs/RECEPTOR%20R13%20F.md) | 3.0 KB | 98.9% |
+
+**Beneficios:**
+- ✅ **Reducción total del 99.2%** en tamaño de documentación (26MB → 214KB)
+- ✅ **Mejor versionado** con Git (diffs legibles)
+- ✅ **Búsqueda mejorada** en GitHub
+- ✅ **Renderizado automático** en navegadores
+- ✅ **Edición colaborativa** simplificada
+
+**Script de Conversión:** `scripts/convert_pdfs_to_markdown.py` (usa pdfplumber + Python)
+
+---
+
+## �📊 Estado del Proyecto
 
 **✅ Completado:**
 - Arquitectura del sistema definida
