@@ -138,7 +138,7 @@ Este proyecto desarrolla un **sistema de parada de emergencia remota** para puen
 **Próximos pasos:**
 
 1. Selección y adquisición del Gateway Ethernet-CAN
-2. Obtención del manual técnico y archivo EDS del Danfoss R13  
+2. Obtención del manual técnico y archivo EDS del Danfoss K13 F
 3. Desarrollo de la aplicación de control con interfaz gráfica
 4. Integración y pruebas con hardware real
 
@@ -149,7 +149,7 @@ Este proyecto desarrolla un **sistema de parada de emergencia remota** para puen
 El sistema implementa una arquitectura distribuida de tres capas que permite el control remoto seguro del puente grúa:
 
 ```
-    COMPUTADOR DE PROCESAMIENTO       GATEWAY ETHERNET-CAN           DANFOSS R13 RECEIVER
+    COMPUTADOR DE PROCESAMIENTO       GATEWAY ETHERNET-CAN           DANFOSS K13 F RECEIVER
     ┌─────────────────────────────┐   ┌─────────────────────────┐   ┌────────────────────────┐
     │                             │   │                         │   │                        │
     │  ┌─────────────────────────┐│   │  ┌───────────────────┐  │   │ ┌────────────────────┐ │
@@ -239,56 +239,27 @@ El sistema implementa una arquitectura distribuida de tres capas que permite el 
 
 ---
 
-## 🛠️ Opciones de Hardware
+## 🛠️ **Hardware Seleccionado**
 
-### Gateway Ethernet-CAN
+### **Configuración Final del Sistema**
 
-**🏆 PREMIUM (Recomendado para Producción Industrial):**
-- **[EdgeBox Lite WiFi](docs/edgebox_lite_wifi_specs.md)** (~$200 USD) ⭐ **NUEVA RECOMENDACIÓN**
-  - ✅ Ubuntu IoT nativo, CAN bus integrado, WiFi industrial
-  - ✅ Certificaciones CE/FCC, temperatura -20°C a +60°C
-  - ✅ Perfecto para puente grúa (industrial grade)
+**✅ EQUIPOS SELECCIONADOS:**
+- **[BL335 Gateway](docs/hardware_final_selection.md)** ($35 USD) - Gateway principal Ethernet-CAN con Ubuntu IoT
+- **[X8 CAN Transceiver](docs/hardware_final_selection.md)** ($8 USD) - Backup CAN para redundancia
+- **[EdgeBox-ESP-100](docs/hardware_final_selection.md)** (~$45 USD) - Gateway WiFi secundario
 
-**Industrial (Recomendado para Producción):**
-- PEAK PCAN-Ethernet Gateway (~$300 USD)
-- HMS Anybus X-gateway (~$400 USD)
-- Kvaser Ethernet-CAN Gateway (~$350 USD)
-- Ventajas: Certificación industrial, soporte técnico, configuración plug-and-play
+**📊 COSTO TOTAL:** ~$148 USD (≈$143.000 CLP) incluyendo envío
 
-**Desarrollo/Prototipo:**
-- ESP32-S3 + Transceiver TJA1050 (~$15 USD)
-- Arduino UNO R4 WiFi + CAN Shield MCP2515 (~$50 USD)
-- Raspberry Pi 4 + CAN HAT (~$120 USD)
-- Ventajas: Económico, personalizable, fácil desarrollo
+**🏗️ ARQUITECTURA IMPLEMENTADA:**
+```
+COMPUTADOR ──Ethernet──► BL335 ──CAN──► Danfoss K13 F ──► MOTORES PUENTE GRÚA
+                    │         │
+                    └──X8────┘ (Backup CAN)
+                    │
+                    └──EdgeBox-ESP-100 (WiFi Monitor)
+```
 
-### 🎯 **RECOMENDACIÓN FINAL: EdgeBox Lite WiFi**
-
-**✅ Hardware Seleccionado:** [EdgeBox Lite WiFi](docs/edgebox_lite_wifi_specs.md) de Advantech
-
-**Especificaciones Clave:**
-- **Precio:** $150-250 USD (rango competitivo)
-- **CPU:** ARM Cortex-A53 Quad-core 1.2GHz
-- **Interfaces:** 2x Ethernet Gigabit, CAN bus nativo, WiFi 802.11ac
-- **Sistema Operativo:** Ubuntu IoT 22.04 LTS (compatible con tu software)
-- **Certificaciones:** CE, FCC, RoHS (industrial)
-- **Temperatura:** -20°C a +60°C
-- **Compatibilidad:** CANopen nativo, protocolo industrial
-
-**Ventajas para tu proyecto:**
-- ✅ **Ubuntu IoT nativo** - Compatible 100% con tu aplicación Python
-- ✅ **CAN bus integrado** - Comunicación directa con receptor R13
-- ✅ **WiFi industrial** - Configuración remota sin cables adicionales
-- ✅ **Certificaciones industriales** - Adecuado para entornos de puente grúa
-- ✅ **Soporte fabricante** - Advantech (empresa reconocida globalmente)
-
-**[📋 Guía de Compra en Alibaba](docs/alibaba_edgebox_search.md)** - Documento completo para búsqueda y cotización
-
-**Dónde comprar:**
-- [Alibaba](https://www.alibaba.com/) - Buscar "Advantech EdgeBox Lite WiFi"
-- [RS Components Chile](https://www.rs-components.com/)
-- [Farnell Chile](https://www.farnell.com/)
-- [DigiKey](https://www.digikey.com/)
-- Distribuidores Advantech en LATAM
+**[📋 Documentación Completa del Hardware](docs/hardware_final_selection.md)** - Especificaciones técnicas, configuración, diagramas de conexión y plan de pruebas.
 
 ---
 
@@ -353,7 +324,7 @@ status = controller.get_status()
 | `BC292382016572en-000201.pdf` | 3.5 MB | [BC292382016572en-000201.md](docs/BC292382016572en-000201.md) | 17 KB | 99.5% |
 | `EMISOR IK3.pdf` | 528 KB | [EMISOR IK3.md](docs/EMISOR%20IK3.md) | 3.8 KB | 99.3% |
 | `Manual Gama TM70 Pupitre.pdf` | 22 MB | [Manual Gama TM70 Pupitre.md](docs/Manual%20Gama%20TM70%20Pupitre.md) | 190 KB | 99.1% |
-| `RECEPTOR R13 F.pdf` | 272 KB | [RECEPTOR R13 F.md](docs/RECEPTOR%20R13%20F.md) | 3.0 KB | 98.9% |
+| `RECEPTOR K13 F.pdf` | 272 KB | [RECEPTOR K13 F.md](docs/RECEPTOR%20K13%20F.md) | 3.0 KB | 98.9% |
 
 **Beneficios:**
 - ✅ **Reducción total del 99.2%** en tamaño de documentación (26MB → 214KB)
@@ -366,22 +337,23 @@ status = controller.get_status()
 
 ---
 
-## �📊 Estado del Proyecto
+## 📊 **Estado del Proyecto**
 
 **✅ Completado:**
-- Arquitectura del sistema definida
+- Arquitectura del sistema definida y hardware seleccionado
 - Protocolo CANopen implementado
-- Gateway scripts desarrollados (ESP32, Raspberry Pi)
-- Documentación técnica
+- Documentación técnica completa (PDFs convertidos a Markdown)
 - Suite de tests unitarios
+- **Hardware final seleccionado:** BL335 + X8 + EdgeBox-ESP-100
 
-**� En Proceso:**
-- Selección final de hardware gateway
-- Obtención de archivo EDS del Danfoss R13
-- Desarrollo de interfaz gráfica
+**🔄 En Proceso:**
+- Adquisición de hardware (BL335, X8, EdgeBox-ESP-100)
+- Desarrollo de drivers para BL335 con Ubuntu IoT
+- Configuración de comunicación CANopen con Danfoss K13 F
 
-**� Próximos Pasos:**
-1. Adquisición e instalación de gateway hardware
-2. Pruebas con sistema real de puente grúa
-3. Certificación de seguridad industrial
-4. Integración con sistemas PLC existentes
+**🎯 Próximos Pasos:**
+1. **Compra inmediata:** BL335 ($35), X8 ($8), EdgeBox-ESP-100 (~$45)
+2. **Configuración BL335:** Instalar Ubuntu IoT, configurar CAN bus
+3. **Pruebas de comunicación:** BL335 ↔ Danfoss K13 F
+4. **Desarrollo interfaz:** Aplicación de control con monitoreo en tiempo real
+5. **Certificación industrial:** Validación de seguridad SIL 2

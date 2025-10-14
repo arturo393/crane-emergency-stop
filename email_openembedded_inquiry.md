@@ -1,6 +1,6 @@
 # Email Inquiry to OpenEmbedded - EdgeBox-Hybrid Compatibility
 
-**Subject:** Compatibility Inquiry: EdgeBox-Hybrid with Danfoss R13 F Receiver for Crane Control System
+**Subject:** Compatibility Inquiry: EdgeBox-Hybrid with Danfoss K13 F Receiver for Crane Control System
 
 ---
 
@@ -14,7 +14,7 @@ We are developing a **remote emergency stop system for bridge cranes** that requ
 
 - **Control Application**: Running on a remote computer
 - **Gateway Device**: Ethernet-to-CAN bridge (this is where EdgeBox-Hybrid would fit)
-- **Target Device**: Danfoss R13 F Receiver for crane control
+- **Target Device**: Danfoss K13 F Receiver for crane control
 
 ## Technical Requirements
 
@@ -24,9 +24,9 @@ Our system needs to:
 3. **Communicate with Danfoss R13 F Receiver** via CAN bus
 4. **Handle bidirectional communication** for command confirmation and status feedback
 
-## Danfoss R13 F Receiver Specifications
+## Danfoss K13 F Receiver Specifications
 
-The target device is the **Danfoss R13 F Receiver** used in industrial crane applications:
+The target device is the **Danfoss K13 F Receiver** used in industrial crane applications:
 - **Product Link**: https://www.danfoss.com/en/products/dps/electronic-controls-hmi-and-iot/plusplus1-remote-controls/remote-control-receivers/r-family-receivers/r13-f/#tab-overview
 - **Communication**: CANopen protocol
 - **CAN Bus**: Standard industrial CAN interface

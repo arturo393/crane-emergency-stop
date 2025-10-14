@@ -1,4 +1,4 @@
-# Receptor R13 F
+# Receptor K13 F
 
 *Convertido desde: RECEPTOR R13 F.pdf*
 
@@ -8,7 +8,7 @@
 
 ## Página 1
 
-Data Sheet Remote Control R13 F Receiver The R13F receiver is highly customizable with many features and mounting kits to ensure reliable and safe operation in potentially dangerous applications. Features • Available for 400-900 MHz and 2.4 GHz Frequency Bands • External display for troubleshooting • Highly field-customizable • External removable EEPROM SIM module • STOP (400-900Mhz): PLd, Category 3 • STOP (2.4GHz): PLe, Category 4 Benefits • Easy and fast maintenance • Multi-feedback capability • Frequency management against interferences • Suitable for all common proportional valves Applications • Industrial lifting and automation • Construction and mining vehicles • Cranes Comprehensive technical literature is online at www.danfoss.com © Danfoss | July 2024 AI299272869169en-000401 | 1
+Data Sheet Remote Control K13 F Receiver The K13F receiver is highly customizable with many features and mounting kits to ensure reliable and safe operation in potentially dangerous applications. Features • Available for 400-900 MHz and 2.4 GHz Frequency Bands • External display for troubleshooting • Highly field-customizable • External removable EEPROM SIM module • STOP (400-900Mhz): PLd, Category 3 • STOP (2.4GHz): PLe, Category 4 Benefits • Easy and fast maintenance • Multi-feedback capability • Frequency management against interferences • Suitable for all common proportional valves Applications • Industrial lifting and automation • Construction and mining vehicles • Cranes Comprehensive technical literature is online at www.danfoss.com © Danfoss | July 2024 AI299272869169en-000401 | 1
 
 ---
 
