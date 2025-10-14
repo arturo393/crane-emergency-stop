@@ -244,9 +244,9 @@ El sistema implementa una arquitectura distribuida de tres capas que permite el 
 ### **Configuración Final del Sistema**
 
 **✅ EQUIPOS SELECCIONADOS:**
-- **[BL335 Gateway](docs/hardware_final_selection.md)** ($35 USD) - Gateway principal Ethernet-CAN con Ubuntu IoT
-- **[X8 CAN Transceiver](docs/hardware_final_selection.md)** ($8 USD) - Backup CAN para redundancia
-- **[EdgeBox-ESP-100](docs/hardware_final_selection.md)** (~$45 USD) - Gateway WiFi secundario
+- **[BL335 Gateway](docs/hardware_consolidado.md)** ($35 USD) - Gateway principal Ethernet-CAN con Ubuntu IoT
+- **[X8 CAN Transceiver](docs/hardware_consolidado.md)** ($8 USD) - Backup CAN para redundancia
+- **[EdgeBox-ESP-100](docs/hardware_consolidado.md)** (~$45 USD) - Gateway WiFi secundario
 
 **📊 COSTO TOTAL:** ~$148 USD (≈$143.000 CLP) incluyendo envío
 
@@ -259,7 +259,7 @@ COMPUTADOR ──Ethernet──► BL335 ──CAN──► Danfoss K13 F ──
                     └──EdgeBox-ESP-100 (WiFi Monitor)
 ```
 
-**[📋 Documentación Completa del Hardware](docs/hardware_final_selection.md)** - Especificaciones técnicas, configuración, diagramas de conexión y plan de pruebas.
+**[📋 Documentación Completa del Hardware](docs/hardware_consolidado.md)** - Especificaciones técnicas, configuración, diagramas de conexión y plan de pruebas.
 
 ---
 
