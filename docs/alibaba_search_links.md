@@ -1,13 +1,46 @@
 # Enlaces Directos de Búsqueda en Alibaba - Gateway Ethernet-CAN
 
-**Fecha:** 6 de octubre de 2025  
+**Fecha:** 13 de octubre de 2025  
 **Proyecto:** Control Puente Grúa - Sistema de Parada de Emergencia  
+**Actualización:** Incluye EdgeBox-ESP-100 como opción económica
 
 ---
 
 ## 🔗 Enlaces de Búsqueda Directos en Alibaba
 
-### 1. Búsqueda Principal - Industrial Ethernet CAN Gateway
+### 1. Búsqueda Principal - EdgeBox ESP-100 (RECOMENDADO - Económico)
+
+```
+https://www.alibaba.com/trade/search?SearchText=edgebox+esp32+can+gateway
+https://www.alibaba.com/trade/search?SearchText=esp32+industrial+gateway+can+bus
+```
+
+**Filtros recomendados:**
+- Precio: $50 - $150 USD
+- MOQ: 1-5 unidades
+- Supplier Type: Manufacturer preferred
+- Trade Assurance: Sí
+
+**Palabras clave relacionadas:**
+- "ESP32-S3 CAN gateway"
+- "EdgeBox industrial controller"
+- "ESP32 Ethernet CAN bridge"
+
+---
+
+### 2. Búsqueda Específica - Seeed Studio EdgeBox
+
+```
+https://www.alibaba.com/trade/search?SearchText=seeed+studio+edgebox
+```
+
+**Productos Seeed Studio disponibles:**
+- EdgeBox-ESP-100 (~$69 USD)
+- EdgeBox-RPI-200 (con Raspberry Pi CM4)
+
+---
+
+### 3. Búsqueda General - Industrial Ethernet CAN Gateway
 
 ```
 https://www.alibaba.com/trade/search?SearchText=industrial+ethernet+can+gateway
@@ -111,7 +144,44 @@ Búsqueda en chino:
 
 ## 🎯 Productos Específicos Recomendados en Alibaba
 
-### Opción 1: USR-CANET200 (Popular y Económico)
+### ⭐ Opción 1: EdgeBox-ESP-100 (RECOMENDADO - Económico)
+
+**Especificaciones:**
+- SOC: ESP32-S3 Dual-core @ 240MHz
+- RAM: 512KB SRAM + 8MB PSRAM
+- Ethernet 10/100M + WiFi 2.4GHz
+- CAN 2.0B con transceiver integrado
+- Alimentación: 7-36V DC
+- Temperatura: -40°C a +85°C
+- Precio: ~$69 USD
+
+**Link de búsqueda:**
+```
+https://www.seeedstudio.com/EdgeBox-ESP-100-p-5490.html
+https://www.alibaba.com/trade/search?SearchText=edgebox+esp100
+```
+
+**Ventajas:**
+✅ **MUY ECONÓMICO**: 3.5x más barato que Revolution Pi
+✅ WiFi integrado: Conectividad inalámbrica sin hardware adicional
+✅ Desarrollo simple: Arduino IDE, MicroPython, ESP-IDF
+✅ CAN nativo: Transceiver SN65HVD230 integrado
+✅ MOQ bajo: 1 unidad disponible
+✅ Rango temperatura amplio: -40°C a +85°C
+
+**Desventajas:**
+❌ No tiene Ubuntu IoT (usa FreeRTOS)
+❌ Recursos limitados vs ARM (pero suficientes para gateway CAN)
+
+**¿Para quién es ideal?**
+- Presupuesto limitado ($112.000 CLP vs $390.000 CLP)
+- Función específica de gateway CAN/Ethernet
+- No requieres sistema operativo completo tipo Linux
+- Necesitas WiFi integrado
+
+---
+
+### Opción 2: USR-CANET200 (Popular y Económico)
 
 **Especificaciones:**
 - Ethernet 10/100M a CAN2.0A/B
@@ -293,34 +363,41 @@ Thanks!
 
 ---
 
-## 💰 Comparativa de Precios Estimados (2025)
+## 💰 Comparativa de Precios Estimados (Actualizado 2025)
 
-| Proveedor | Producto | Especificación | Precio Unitario | MOQ | Envío Chile |
-|-----------|----------|---------------|-----------------|-----|-------------|
-| **Alibaba - USR IoT** | CANET200 | Eth-CAN básico | $60-80 | 1 | ~$20 |
-| **Alibaba - ZLG** | CANNET-200I | Industrial CAN | $100-150 | 1-5 | ~$30 |
-| **Alibaba - Generic** | ARM Linux GW | Linux + CAN | $120-200 | 5-10 | ~$40 |
-| **AliExpress - GCAN** | GCAN-ETH | Eth-CAN USB | $85-100 | 1 | ~$15 |
-| **RS Components** | Revolution Pi | CM4 + 2xCAN | $350-400 | 1 | ~$50 |
-| **Amazon** | RPi4 + CAN HAT | DIY Solution | $100-130 | 1 | ~$20 |
+| Proveedor | Producto | Especificación | Precio Unitario | MOQ | Envío Chile | **TOTAL CLP** |
+|-----------|----------|---------------|-----------------|-----|-------------|---------------|
+| **Seeed Studio** | EdgeBox-ESP-100 | ESP32-S3 + CAN | $69 | 1 | ~$20 | **~$112.000** ⭐ |
+| **Alibaba - USR IoT** | CANET200 | Eth-CAN básico | $60-80 | 1 | ~$20 | ~$125.000 |
+| **Alibaba - ZLG** | CANNET-200I | Industrial CAN | $100-150 | 1-5 | ~$30 | ~$180.000 |
+| **Alibaba - Generic** | ARM Linux GW | Linux + CAN | $120-200 | 5-10 | ~$40 | ~$240.000 |
+| **AliExpress - GCAN** | GCAN-ETH | Eth-CAN USB | $85-100 | 1 | ~$15 | ~$135.000 |
+| **RS Components** | Revolution Pi | CM4 + 2xCAN | $350-400 | 1 | ~$50 | **~$390.000** 🏭 |
+| **Amazon** | RPi4 + CAN HAT | DIY Solution | $100-130 | 1 | ~$20 | ~$155.000 |
+
+**Conclusión:** EdgeBox-ESP-100 es **3.5x más económico** que Revolution Pi manteniendo funcionalidad CAN/Ethernet completa.
 
 ---
 
 ## 📦 Recomendación de Compra por Presupuesto
 
-### Presupuesto Bajo ($50-100 USD)
-**Producto:** USR-CANET200 o similar de Alibaba  
-**Ventaja:** Económico, rápida entrega  
-**Limitación:** Sin Linux embebido, funcionalidad limitada
+### ⭐ Presupuesto Bajo ($50-150 USD) - RECOMENDADO
+**Producto:** **EdgeBox-ESP-100**  
+**Precio total:** ~$112.000 CLP  
+**Ventaja:** WiFi + CAN + Ethernet, desarrollo Arduino/Python  
+**Limitación:** Sin Ubuntu IoT (usa FreeRTOS, suficiente para gateway)  
+**¿Para quién?:** Mayoría de proyectos de control industrial
 
 ### Presupuesto Medio ($100-200 USD)
 **Producto:** Gateway ARM Linux genérico de Alibaba  
 **Ventaja:** Linux programable, buena flexibilidad  
-**Recomendado:** ✅ **Mejor balance precio/características**
+**Limitación:** Calidad variable, verificar soporte
 
-### Presupuesto Alto ($300-400 USD)
+### 🏭 Presupuesto Alto ($300-400 USD) - Industrial Completo
 **Producto:** Revolution Pi Connect+ SE  
-**Ventaja:** Industrial certificado, soporte profesional  
+**Precio total:** ~$390.000 CLP  
+**Ventaja:** Ubuntu IoT LTS, certificaciones industriales, 2x CAN  
+**¿Para quién?:** Proyectos críticos con requisitos de certificación  
 **Dónde:** RS Components Chile
 
 ---

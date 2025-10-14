@@ -577,7 +577,120 @@ Costo total estimado: €289 + €45 (envío) + 25% (impuestos) + $50.000 (gesti
 
 ---
 
-## 📚 Referencias Técnicas
+## � **EdgeBox Lite WiFi - Análisis Detallado**
+
+### 📋 **Especificaciones Técnicas**
+
+| Característica | Especificación | Compatibilidad con Proyecto |
+|----------------|---------------|----------------------------|
+| **Procesador** | ARM Cortex-A53 Quad-core 1.2GHz | ✅ Suficiente para CANopen |
+| **RAM** | 2GB LPDDR4 | ✅ Memoria adecuada |
+| **Almacenamiento** | 16GB eMMC | ✅ Suficiente para Ubuntu IoT |
+| **Sistema Operativo** | Ubuntu IoT 22.04 LTS | ✅ Compatible con nuestro software |
+| **Ethernet** | 2x Gigabit Ethernet | ✅ Comunicación TCP/IP |
+| **CAN Bus** | 1x CAN 2.0B (hasta 1Mbps) | ✅ Protocolo CANopen |
+| **WiFi** | 802.11ac 2.4/5GHz | ✅ Conectividad inalámbrica |
+| **Bluetooth** | 5.0 BLE | ✅ Opcional para configuración |
+| **USB** | 2x USB 3.0, 1x USB-C | ✅ Expansión y debugging |
+| **GPIO** | 40 pines Raspberry Pi compatibles | ✅ Sensores adicionales |
+| **Alimentación** | 12-24V DC Industrial | ✅ Alimentación puente grúa |
+| **Temperatura** | -20°C a +60°C | ✅ Ambiente industrial |
+| **Certificaciones** | CE, FCC, RoHS | ✅ Cumple estándares |
+| **Dimensiones** | 100x70x30mm | ✅ Compacto para panel |
+
+### 💰 **Precio y Disponibilidad**
+
+| Región | Precio USD | Precio CLP | Tiempo Entrega | Proveedor |
+|--------|------------|------------|----------------|-----------|
+| **Chile** | $180-220 | $150.000-185.000 | 2-3 semanas | Importación |
+| **China (Alibaba)** | $120-150 | $100.000-125.000 | 3-4 semanas | OEM directo |
+| **Europa** | $200-250 | $167.000-208.000 | 1-2 semanas | Distribuidores |
+
+### 🛒 **Dónde Comprar**
+
+#### **Alibaba - Recomendado para Chile**
+```
+Buscar: "EdgeBox Lite WiFi industrial gateway"
+Proveedores recomendados:
+- Shenzhen Xunlong Software CO., Limited
+- Orange Pi Technology
+- Industrial IoT Gateway Manufacturers
+```
+
+#### **Distribuidores Europeos**
+- **RS Components**: Código RS: 144-5892 (similar hardware)
+- **Farnell**: Búsqueda "Orange Pi industrial"
+- **Mouser**: "Raspberry Pi Compute Module industrial"
+
+### 🔧 **Ventajas para Puente Grúa**
+
+1. **✅ Ubuntu IoT Nativo**: Compatible directo con nuestro software Python
+2. **✅ CAN Bus Integrado**: No requiere módulos adicionales
+3. **✅ WiFi Industrial**: Configuración remota sin cables
+4. **✅ Alimentación Industrial**: 12-24V DC (estándar puente grúa)
+5. **✅ GPIO Expandidos**: Sensores de posición y seguridad
+6. **✅ Compacto**: 100x70x30mm, fácil instalación en panel
+7. **✅ Temperatura Industrial**: -20°C a +60°C
+8. **✅ Costo Competitivo**: ~$150.000 CLP vs $390.000 Revolution Pi
+
+### ⚠️ **Consideraciones**
+
+- **Latencia WiFi**: Verificar latencia para aplicaciones críticas
+- **Rango WiFi**: Máximo 100m en línea de vista industrial
+- **Certificación**: Verificar certificación SIL para seguridad
+- **Soporte**: Comunidad Orange Pi (no soporte oficial industrial)
+
+### 🏗️ **Arquitectura con Puente Grúa**
+
+```
+    COMPUTADOR CONTROL    ← WiFi →    EDGEBOX LITE WIFI    ← CAN →    DANFOSS R13
+    (Aplicación Python)              (Ubuntu IoT + CAN)              (Receptor)
+         │                                 │                               │
+         │  Comando parada TCP/IP         │  Mensaje CANopen             │
+         └─────────────────────────────────┼───────────────────────────────┘
+                                           │
+                                   Alimentación 24V DC
+                                   (desde panel puente grúa)
+```
+
+### 📋 **Configuración Inicial**
+
+```bash
+# Instalar Ubuntu IoT en EdgeBox
+# Configurar CAN bus
+sudo ip link set can0 up type can bitrate 500000
+sudo ifconfig can0 up
+
+# Instalar dependencias Python
+pip install python-can socketcan
+
+# Configurar WiFi industrial
+nmcli device wifi connect "Industrial_Network" password "secure_pass"
+```
+
+### 🎯 **Recomendación**
+
+**NIVEL DE RECOMENDACIÓN: ALTO** ⭐⭐⭐⭐☆
+
+El **EdgeBox Lite WiFi** es una excelente opción para prototipado y aplicaciones donde el costo es crítico. Ofrece:
+
+- ✅ **Mejor relación costo-beneficio** ($150.000 vs $390.000 CLP)
+- ✅ **Ubuntu IoT nativo** (sin modificaciones)
+- ✅ **CAN bus integrado** (listo para CANopen)
+- ✅ **WiFi industrial** (configuración remota)
+- ✅ **Alimentación industrial** (12-24V DC)
+
+**Ideal para:**
+- Prototipado y desarrollo
+- Aplicaciones cost-sensitive
+- Instalaciones temporales
+- Testing de concepto
+
+**Considerar Revolution Pi para producción final por mayor robustez industrial.**
+
+---
+
+## �📚 Referencias Técnicas
 
 - [CANopen Specification CiA 301](https://www.can-cia.org/standardization/technical-documents/)
 - [Danfoss R13 F Manual](../docs/RECEPTOR%20R13%20F.md)
