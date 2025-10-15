@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### 2025-10-14 - GitHub Project y Nuevos Issues
+
+- **GitHub Project Board**:
+  - Creado proyecto "Crane Emergency Stop System" (#7)
+  - Agregados todos los issues al proyecto
+  - URL: https://github.com/users/arturo393/projects/7
+  - `PROJECT_README.md`: Documentación completa del project board
+
+- **Nuevos Issues Creados**:
+  - Issue #8: Desarrollo BL335 Gateway (Python + CANopen + SocketCAN)
+  - Issue #9: Interfaz de Monitoreo y Control (PyQt6 GUI)
+
 ### 2025-10-14 - Desarrollo ESP32 Gateway Iniciado
 
 - **Estructura Base ESP32**:
