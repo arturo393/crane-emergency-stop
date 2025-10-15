@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### 2025-10-14 - Desarrollo ESP32 Gateway Iniciado
+
+- **Estructura Base ESP32**:
+  - Creada estructura completa del proyecto `esp32_gateway/` con ESP-IDF
+  - `main.cpp`: Punto de entrada con FreeRTOS y loop principal
+  - `can_manager.cpp/h`: Driver TWAI (CAN) funcional con soporte básico CANopen
+  - `wifi_manager.cpp/h`: Estructura para gestión WiFi (pendiente implementación completa)
+  - Configuración CMake completa para ESP-IDF v5.x
+  - `sdkconfig.defaults`: Configuración SDK para ESP32-S3
+  - `README.md`: Documentación técnica del proyecto ESP32
+
+- **GitHub Issues**:
+  - Issue #6: Adquisición de Hardware (BL335 + X8 + EdgeBox-ESP-100)
+  - Issue #7: Desarrollo ESP32 completo (FOTA + WiFi + Ethernet + CANbus)
+
 ### 2025-10-14 - Consolidación de Documentación
 
 - **Consolidación de Hardware**:
