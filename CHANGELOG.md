@@ -4,6 +4,55 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### 2025-10-14 - Testcontainers Infrastructure & BL335 Gateway
+
+- **BL335 Gateway Python** (✅ COMPLETO):
+  - `src/bl335_gateway/main.py`: Gateway completo (380+ líneas)
+  - Servidor TCP multicliente (puerto 9999)
+  - Integración python-canopen con SocketCAN
+  - Comandos JSON: `emergency_stop`, `get_status`, `reset`, `sdo_read`, `sdo_write`
+  - Soporte interfaz `virtual` para testing sin módulos kernel
+  - README completo con ejemplos de cliente y protocolo
+  
+- **K13 F Simulator** (✅ COMPLETO):
+  - `tools/can_simulator.py`: Simulador completo (314 líneas)
+  - CANopen completo: Heartbeat (500ms), NMT, SDO
+  - Simulación de emergency stop
+  - Virtual CAN support para desarrollo sin hardware
+  - CLI con argumentos para configuración
+
+- **Testcontainers Infrastructure** (✅ COMPLETO):
+  - `Dockerfile.test`: Imagen Linux con Python 3.12 y dependencias CAN
+  - `docker-compose.test.yml`: Orquestación Gateway + Simulator
+  - `tests/conftest.py`: Fixtures completos con Testcontainers
+  - Estructura organizada: `tests/unit/`, `tests/integration/`, `tests/e2e/`
+  - Imagen Docker: k13-test:latest (638MB)
+  - Tests básicos funcionando (6/6 ✅)
+  - Documentación completa: `tests/README_TESTCONTAINERS.md`
+  
+- **Testing Strategy Documentation**:
+  - `docs/implementation/testing_strategy.md`: Estrategia completa
+  - Arquitectura de testing multi-plataforma
+  - Guías de uso, troubleshooting y best practices
+  
+- **ESP32 WiFi Manager** (✅ COMPLETO):
+  - `esp32_gateway/main/wifi_manager.cpp`: WiFi completo
+  - STA mode con DHCP y auto-reconnect
+  - AP mode para configuración
+  - Event handlers robustos y retry logic
+  
+- **Dependencies Updated**:
+  - testcontainers 4.13.2
+  - PyQt6 6.9.1
+  - python-canopen 2.4.1
+  - docker 7.1.0
+  - 60+ paquetes instalados y verificados
+
+- **Tests Reorganization**:
+  - Tests migrados a estructura unit/integration/e2e
+  - Imports corregidos para nueva estructura
+  - __init__.py agregado a cada directorio
+
 ### 2025-10-14 - GitHub Project y Nuevos Issues
 
 - **GitHub Project Board**:
