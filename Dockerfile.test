@@ -1,0 +1,55 @@
+# Dockerfile para Testing
+# Imagen Linux con SocketCAN para tests del proyecto K13
+
+FROM python:3.12-slim
+
+LABEL maintainer="K13 Project Team"
+LABEL description="Testing environment with SocketCAN support"
+
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+    iproute2 \
+    can-utils \
+    kmod \
+    procps \
+    net-tools \
+    iputils-ping \
+    && rm -rf /var/lib/apt/lists/*
+
+# Crear directorio de aplicación
+WORKDIR /app
+
+# Copiar requirements y instalar dependencias Python
+COPY requirements.txt /app/
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar código fuente
+COPY src/ /app/src/
+COPY tools/ /app/tools/
+COPY config/ /app/config/
+
+# Script de inicialización CAN
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+echo "🚀 Inicializando ambiente de testing..."\n\
+echo ""\n\
+echo "ℹ️  Nota: En Docker Desktop (macOS/Windows), usamos python-can en modo virtual"\n\
+echo "ℹ️  El bus CAN virtual se simula con python-can interface=virtual"\n\
+echo "ℹ️  Esto permite testing sin módulos kernel vcan"\n\
+echo ""\n\
+echo "✅ Ambiente de testing listo"\n\
+echo ""\n\
+echo "🎯 Ejecutando comando: $@"\n\
+echo ""\n\
+\n\
+exec "$@"' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+# Exponer puertos
+EXPOSE 9999
+
+# Punto de entrada
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Comando por defecto (se puede sobreescribir)
+CMD ["python", "src/bl335_gateway/main.py", "--can", "vcan0", "--interface", "virtual", "--port", "9999", "--verbose"]

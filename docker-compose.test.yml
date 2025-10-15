@@ -1,0 +1,53 @@
+version: '3.8'
+
+# Docker Compose para Testing K13 Project
+# Orquesta Gateway BL335 + Simulador K13 F
+
+services:
+  # Gateway BL335 con SocketCAN
+  bl335-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: k13-bl335-gateway
+    ports:
+      - "9999:9999"
+    environment:
+      - CAN_INTERFACE=vcan0
+      - NODE_ID=1
+      - TCP_PORT=9999
+      - PYTHONUNBUFFERED=1
+    cap_add:
+      - NET_ADMIN
+    command: python src/bl335_gateway/main.py --can vcan0 --port 9999 --node-id 1 --verbose
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9999"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - can-network
+
+  # Simulador K13 F
+  k13-simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: k13-simulator
+    environment:
+      - CAN_INTERFACE=vcan0
+      - NODE_ID=1
+      - PYTHONUNBUFFERED=1
+    cap_add:
+      - NET_ADMIN
+    command: python tools/can_simulator.py --channel vcan0 --node-id 1 --verbose
+    depends_on:
+      bl335-gateway:
+        condition: service_started
+    networks:
+      - can-network
+
+networks:
+  can-network:
+    driver: bridge
