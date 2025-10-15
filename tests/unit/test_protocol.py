@@ -6,8 +6,8 @@ import pytest
 import sys
 import os
 
-# Agregar el directorio src al path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+# Agregar src al path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 from k13_controller.protocol import K13Protocol, K13Command, K13Packet
 

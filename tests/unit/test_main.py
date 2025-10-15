@@ -6,10 +6,9 @@ import pytest
 import sys
 import os
 
-# Agregar src al path para importar módulos
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+# Agregar src al path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-# Importar módulos del proyecto
 from k13_controller.main import R13Controller, R13Config, CraneCommand
 from k13_controller.protocol import R13CANopenProtocol, CANopenCommands
 
@@ -76,9 +75,9 @@ import sys
 import os
 
 # Agregar el directorio src al path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from k13_controller.main import K13Controller, K13Config, CraneCommand
+from k13_controller.main import R13Controller, R13Config, CraneCommand
 
 
 class TestK13Controller:
@@ -86,8 +85,8 @@ class TestK13Controller:
     
     def setup_method(self):
         """Configurar cada test"""
-        self.config = K13Config(device_port="/dev/ttyUSB0")
-        self.controller = K13Controller(self.config)
+        self.config = R13Config(device_port="/dev/ttyUSB0")
+        self.controller = R13Controller(self.config)
     
     def teardown_method(self):
         """Limpiar después de cada test"""
