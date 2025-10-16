@@ -27,9 +27,12 @@ loguru>=0.6.0
 requests>=2.31.0
 aiohttp>=3.8.0
 
-# GUI (opcional)
-# tkinter viene con Python
-PyQt6>=6.5.0
+# Web UI
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+jinja2>=3.1.0
+python-multipart>=0.0.6
+websockets>=12.0
 
 # Hardware y comunicaciones (solo para Raspberry Pi)
 # RPi.GPIO>=0.7.1  # Solo para Raspberry Pi - comentado para desarrollo
