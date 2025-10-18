@@ -1,6 +1,7 @@
 """
 Web UI Main Application
 FastAPI server for crane emergency stop monitoring and control
+Updated to support integrated system (Simulator + Gateway)
 """
 
 import asyncio
@@ -8,6 +9,8 @@ import json
 from datetime import datetime
 from typing import Optional
 from pathlib import Path
+import sys
+import os
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.templating import Jinja2Templates
@@ -18,14 +21,22 @@ import uvicorn
 # Import BL335 Gateway client
 import socket
 
+# Añadir rutas al path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+from src.bl335_gateway.simulator_adapter import IntegratedSystem
+
 
 class WebUIApp:
-    """Web UI Application"""
+    """Web UI Application with Integrated System support"""
     
-    def __init__(self, gateway_host="localhost", gateway_port=9999):
-        self.app = FastAPI(title="Crane Emergency Stop Monitor", version="0.1.0")
+    def __init__(self, gateway_host="localhost", gateway_port=9999, use_integrated=True):
+        self.app = FastAPI(title="K13 Puente Grúa - Control Center", version="1.0.0")
         self.gateway_host = gateway_host
         self.gateway_port = gateway_port
+        self.use_integrated = use_integrated
+        
+        # Sistema integrado (Simulador + Gateway)
+        self.integrated_system: Optional[IntegratedSystem] = None
         
         # Setup paths
         base_dir = Path(__file__).parent
@@ -33,7 +44,8 @@ class WebUIApp:
         templates_dir = base_dir / "templates"
         
         # Mount static files
-        self.app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+        if static_dir.exists():
+            self.app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
         
         # Setup templates
         self.templates = Jinja2Templates(directory=str(templates_dir))
@@ -43,16 +55,84 @@ class WebUIApp:
         
         # System state
         self.system_state = {
-            "status": "disconnected",
+            "status": "initializing",
             "connected": False,
             "uptime": "0s",
             "messages": 0,
             "errors": 0,
-            "last_update": None
+            "last_update": None,
+            "device_state": "UNKNOWN",
+            "velocity": 0,
+            "position": 0
         }
         
         # Setup routes
         self._setup_routes()
+        
+        # Setup lifecycle events
+        if self.use_integrated:
+            @self.app.on_event("startup")
+            async def startup():
+                await self._start_integrated_system()
+            
+            @self.app.on_event("shutdown")
+            async def shutdown():
+                await self._stop_integrated_system()
+    
+    async def _start_integrated_system(self):
+        """Iniciar sistema integrado al arranque"""
+        print("\n🚀 Iniciando sistema integrado...")
+        self.integrated_system = IntegratedSystem(node_id=1, tcp_port=self.gateway_port)
+        
+        if self.integrated_system.start():
+            print("✅ Sistema integrado iniciado")
+            self.system_state["status"] = "running"
+            self.system_state["connected"] = True
+            
+            # Iniciar tarea de actualización periódica
+            asyncio.create_task(self._periodic_update())
+        else:
+            print("❌ Error iniciando sistema integrado")
+            self.system_state["status"] = "error"
+            self.system_state["connected"] = False
+    
+    async def _stop_integrated_system(self):
+        """Detener sistema integrado"""
+        if self.integrated_system:
+            print("\n⏹️  Deteniendo sistema integrado...")
+            self.integrated_system.stop()
+            print("✅ Sistema detenido")
+    
+    async def _periodic_update(self):
+        """Actualizar estado periódicamente y enviar a clientes WebSocket"""
+        while True:
+            try:
+                if self.integrated_system:
+                    status = self.integrated_system.get_status()
+                    
+                    # Actualizar system_state
+                    if status.get('simulator'):
+                        self.system_state.update({
+                            "device_state": status['simulator']['device_state'],
+                            "velocity": status['simulator']['actual_velocity'],
+                            "position": status['simulator']['actual_position'],
+                            "status_word": status['simulator'].get('status_word', 0)
+                        })
+                    
+                    if status.get('gateway'):
+                        self.system_state.update({
+                            "connected": status['gateway']['connected']
+                        })
+                    
+                    self.system_state["last_update"] = datetime.now().isoformat()
+                    
+                    # Broadcast a clientes WebSocket
+                    await self._broadcast_update(self.system_state)
+            
+            except Exception as e:
+                print(f"Error en actualización periódica: {e}")
+            
+            await asyncio.sleep(0.5)  # Actualizar cada 500ms
     
     def _setup_routes(self):
         """Setup FastAPI routes"""
@@ -78,7 +158,11 @@ class WebUIApp:
         async def emergency_stop():
             """Trigger emergency stop"""
             try:
-                result = await self._send_gateway_command({"command": "emergency_stop"})
+                if self.use_integrated and self.integrated_system:
+                    result = self.integrated_system.gateway.emergency_stop()
+                else:
+                    result = await self._send_gateway_command({"command": "emergency_stop"})
+                
                 await self._broadcast_update({
                     "type": "emergency_stop",
                     "timestamp": datetime.now().isoformat(),
@@ -92,9 +176,89 @@ class WebUIApp:
         async def reset_system():
             """Reset system"""
             try:
-                result = await self._send_gateway_command({"command": "reset"})
+                if self.use_integrated and self.integrated_system:
+                    result = self.integrated_system.gateway.reset()
+                else:
+                    result = await self._send_gateway_command({"command": "reset"})
+                
                 await self._broadcast_update({
                     "type": "reset",
+                    "timestamp": datetime.now().isoformat(),
+                    "result": result
+                })
+                return JSONResponse(result)
+            except Exception as e:
+                return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+        
+        @self.app.post("/api/enable-operation")
+        async def enable_operation():
+            """Enable operation (Control Word 0x000F)"""
+            try:
+                if self.use_integrated and self.integrated_system:
+                    # Control Word = 0x000F (Enable Operation)
+                    data = bytes([0x0F, 0x00, 0x00, 0x00])
+                    result = self.integrated_system.gateway.pdo_write(1, data)
+                else:
+                    result = await self._send_gateway_command({
+                        "command": "pdo_write",
+                        "pdo_number": 1,
+                        "data": "0F000000"
+                    })
+                
+                await self._broadcast_update({
+                    "type": "enable_operation",
+                    "timestamp": datetime.now().isoformat(),
+                    "result": result
+                })
+                return JSONResponse(result)
+            except Exception as e:
+                return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+        
+        @self.app.post("/api/switch-on")
+        async def switch_on():
+            """Switch On (Control Word 0x0007)"""
+            try:
+                if self.use_integrated and self.integrated_system:
+                    # Control Word = 0x0007 (Switch On)
+                    data = bytes([0x07, 0x00, 0x00, 0x00])
+                    result = self.integrated_system.gateway.pdo_write(1, data)
+                else:
+                    result = await self._send_gateway_command({
+                        "command": "pdo_write",
+                        "pdo_number": 1,
+                        "data": "07000000"
+                    })
+                
+                await self._broadcast_update({
+                    "type": "switch_on",
+                    "timestamp": datetime.now().isoformat(),
+                    "result": result
+                })
+                return JSONResponse(result)
+            except Exception as e:
+                return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+        
+        @self.app.post("/api/set-velocity")
+        async def set_velocity(request: Request):
+            """Set target velocity"""
+            try:
+                data = await request.json()
+                velocity = int(data.get('velocity', 0))
+                
+                if self.use_integrated and self.integrated_system:
+                    # Escribir velocidad objetivo (0x6081)
+                    result = self.integrated_system.gateway.sdo_write(0x6081, 0, velocity)
+                else:
+                    result = await self._send_gateway_command({
+                        "command": "sdo_write",
+                        "index": 0x6081,
+                        "subindex": 0,
+                        "value": velocity
+                    })
+                
+                await self._broadcast_update({
+                    "type": "set_velocity",
+                    "velocity": velocity,
                     "timestamp": datetime.now().isoformat(),
                     "result": result
                 })
@@ -179,13 +343,22 @@ class WebUIApp:
     
     def run(self, host="0.0.0.0", port=8000):
         """Run the web server"""
-        print("=" * 60)
-        print("🌐 Crane Emergency Stop - Web UI")
-        print("=" * 60)
-        print(f"Server: http://{host}:{port}")
-        print(f"Gateway: {self.gateway_host}:{self.gateway_port}")
+        print("=" * 70)
+        print("� K13 PUENTE GRÚA - WEB CONTROL CENTER")
+        print("=" * 70)
+        print(f"\n🌐 Servidor Web: http://{host}:{port}")
+        print(f"📡 WebSocket: ws://{host}:{port}/ws")
+        
+        if self.use_integrated:
+            print(f"🔌 Sistema Integrado: Simulador + Gateway")
+            print(f"📡 Gateway TCP: puerto {self.gateway_port}")
+        else:
+            print(f"🔌 Gateway externo: {self.gateway_host}:{self.gateway_port}")
+        
+        print("\nAbre tu navegador y accede a:")
+        print(f"  → http://localhost:{port}")
         print("\nPresiona Ctrl+C para detener")
-        print("=" * 60)
+        print("=" * 70)
         
         uvicorn.run(self.app, host=host, port=port)
 
@@ -194,15 +367,21 @@ def main():
     """Main entry point"""
     import argparse
     
-    parser = argparse.ArgumentParser(description='Crane Emergency Stop Web UI')
+    parser = argparse.ArgumentParser(description='K13 Puente Grúa - Web Control Center')
     parser.add_argument('--host', default='0.0.0.0', help='Host to bind (default: 0.0.0.0)')
     parser.add_argument('--port', type=int, default=8000, help='Port to bind (default: 8000)')
-    parser.add_argument('--gateway-host', default='localhost', help='BL335 Gateway host')
+    parser.add_argument('--gateway-host', default='localhost', help='BL335 Gateway host (si --no-integrated)')
     parser.add_argument('--gateway-port', type=int, default=9999, help='BL335 Gateway port')
+    parser.add_argument('--no-integrated', action='store_true', 
+                       help='No usar sistema integrado (conectar a gateway externo)')
     
     args = parser.parse_args()
     
-    app = WebUIApp(gateway_host=args.gateway_host, gateway_port=args.gateway_port)
+    app = WebUIApp(
+        gateway_host=args.gateway_host, 
+        gateway_port=args.gateway_port,
+        use_integrated=not args.no_integrated
+    )
     app.run(host=args.host, port=args.port)
 
 
