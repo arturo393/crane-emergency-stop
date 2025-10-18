@@ -44,7 +44,7 @@ class DeviceState(Enum):
 class R13FSimulator:
     """Simulador completo del receptor Danfoss R13 F con CANopen CiA 402"""
 
-    def __init__(self, channel='vcan0', node_id=1, batch_mode=False):
+    def __init__(self, channel='vcan0', node_id=1, batch_mode=False, bus=None):
         """
         Inicializar simulador
 
@@ -52,13 +52,15 @@ class R13FSimulator:
             channel: Canal CAN virtual (default: vcan0)
             node_id: ID del nodo CANopen (default: 1)
             batch_mode: Modo batch para testing automatizado
+            bus: Bus CAN pre-creado (opcional, para integración con gateway)
         """
         self.channel = channel
         self.node_id = node_id
         self.batch_mode = batch_mode
-        self.bus = None
+        self.bus = bus  # Puede ser None o un bus pre-creado
         self.running = Event()
         self.state_lock = Lock()
+        self.external_bus = bus is not None  # Flag para saber si es bus externo
 
         # Estado del dispositivo según CiA 402
         self.device_state = DeviceState.SWITCH_ON_DISABLED
@@ -113,12 +115,16 @@ class R13FSimulator:
     def start(self):
         """Iniciar simulador"""
         try:
-            # Crear bus CAN virtual
-            self.bus = can.interface.Bus(
-                channel=self.channel,
-                interface='socketcan',
-                bitrate=250000
-            )
+            # Crear bus CAN virtual solo si no se proporcionó uno externo
+            if not self.external_bus:
+                self.bus = can.interface.Bus(
+                    channel=self.channel,
+                    interface='socketcan',
+                    bitrate=250000
+                )
+                logger.info(f"Bus CAN creado: {self.channel}")
+            else:
+                logger.info(f"Usando bus CAN externo")
 
             self.running.set()
             self._update_status_word()
