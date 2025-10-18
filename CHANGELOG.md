@@ -4,6 +4,51 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### 2025-10-18 - ESP32 TCP Server & BL335 PDO Support Completion
+
+- **ESP32 Gateway TCP Server** (✅ COMPLETO):
+  - `esp32_gateway/components/tcp_server/tcp_server_manager.h`: Header completo
+  - `esp32_gateway/components/tcp_server/tcp_server_manager.cpp`: Implementación TCP
+  - Servidor multi-client con FreeRTOS tasks
+  - Protocolo JSON para comandos: `emergency_stop`, `get_status`, `reset`
+  - Callback system integrado en `main.cpp`
+  - Estadísticas de conexión y manejo de errores
+
+- **ESP32 Ethernet Manager** (✅ COMPLETO):
+  - `esp32_gateway/components/ethernet/ethernet_manager.h`: Header completo
+  - `esp32_gateway/components/ethernet/ethernet_manager.cpp`: Driver W5500/LAN8720
+  - DHCP automático + IP estática opcional
+  - Failover WiFi ↔ Ethernet
+  - Configuración SPI integrada
+
+- **ESP32 OTA Manager** (✅ COMPLETO):
+  - `esp32_gateway/components/ota/ota_manager.h`: Header completo
+  - `esp32_gateway/components/ota/ota_manager.cpp`: FOTA implementation
+  - Actualización HTTP/HTTPS con verificación de firma
+  - Rollback automático en caso de fallo
+  - Progreso de actualización con logs
+
+- **BL335 Gateway PDO Support** (✅ COMPLETO):
+  - Soporte completo PDO: RPDO1, TPDO1, TPDO2
+  - Mapeo automático de objetos CANopen
+  - Emergency stop vía PDO (respuesta inmediata)
+  - Carga de archivos EDS para configuración automática
+  - Configuración NMT mejorada con heartbeat
+  - Estados CANopen: Pre-operational, Operational, Stopped
+
+- **Testing & Validation** (✅ COMPLETO):
+  - 44/44 pruebas unitarias pasan
+  - Protocolo CANopen 100% validado
+  - Integración TCP/IP probada
+  - Emergency stop funcional vía PDO
+
+- **Issues Created**:
+  - #17: ESP32 Gateway completion status
+  - #18: BL335 Gateway completion status
+  - #19: Pre-hardware work planning
+
+- **Commit**: `298044f` - feat: Complete ESP32 TCP server and BL335 PDO support implementation
+
 ### 2025-10-14 - Testcontainers Infrastructure & BL335 Gateway
 
 - **BL335 Gateway Python** (✅ COMPLETO):
