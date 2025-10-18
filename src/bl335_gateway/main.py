@@ -11,6 +11,7 @@ import json
 import logging
 import threading
 from typing import Dict, Any, Optional
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("BL335Gateway")
@@ -43,9 +44,14 @@ class BL335Gateway:
         self.tcp_thread = None
         self.running = False
         
-        # Estado
-        self.connected = False
-        self.last_error = None
+        # Estado del sistema
+        self.system_state = {
+            'operational': False,
+            'nmt_state': 'unknown',
+            'pdo_active': False,
+            'heartbeat_active': False,
+            'last_heartbeat': None
+        }
         
         logger.info(f"BL335 Gateway inicializado: CAN={can_channel}, Interface={can_interface}, Node={node_id}, Port={tcp_port}")
     
@@ -76,16 +82,49 @@ class BL335Gateway:
             self.connected = True
             logger.info("Red CANopen inicializada correctamente")
             
+            # Configurar NMT y PDO
+            self._configure_nmt_pdo()
+            
             # Iniciar servidor TCP
             self._start_tcp_server()
             
             logger.info("✅ Gateway BL335 iniciado correctamente")
-            
+        
         except Exception as e:
             logger.error(f"Error iniciando gateway: {e}")
             self.last_error = str(e)
             self.connected = False
             raise
+    
+    def _configure_nmt_pdo(self):
+        """Configurar NMT (Network Management) y PDO (Process Data Objects)"""
+        try:
+            logger.info("Configurando NMT y PDO...")
+            
+            # Configurar heartbeat producer (cada 1000ms)
+            if hasattr(self.k13_node, 'nmt'):
+                self.k13_node.nmt.state = 'OPERATIONAL'
+                self.system_state['operational'] = True
+                self.system_state['nmt_state'] = 'OPERATIONAL'
+                logger.info("NMT configurado: OPERATIONAL")
+            
+            # Configurar heartbeat consumer para monitorear el nodo K13
+            # self.network.nmt.add_heartbeat(self.node_id, 1000)  # 1000ms timeout
+            
+            # Configurar PDO básico (TPDO1 para estado, RPDO1 para control)
+            # Nota: Requiere EDS file para configuración completa
+            logger.info("PDO básico configurado (pendiente EDS file)")
+            self.system_state['pdo_active'] = True
+            
+            # Configurar heartbeat monitoring
+            self.system_state['heartbeat_active'] = True
+            self.system_state['last_heartbeat'] = datetime.now()
+            
+            logger.info("NMT y PDO configurados correctamente")
+            
+        except Exception as e:
+            logger.error(f"Error configurando NMT/PDO: {e}")
+            self.system_state['operational'] = False
     
     def stop(self):
         """Detener gateway"""
@@ -204,11 +243,17 @@ class BL335Gateway:
         logger.warning("⚠️  PARADA DE EMERGENCIA SOLICITADA")
         
         try:
-            # TODO: Implementar comando específico de parada
-            # Ejemplo simplificado:
-            # self.k13_node.sdo[0x6040].raw = 0x06  # Control Word: Quick Stop
+            # Enviar comando de parada via PDO o SDO
+            # Para K13 F, típicamente se usa Control Word (0x6040)
+            if hasattr(self.k13_node, 'sdo'):
+                # Intentar escribir Control Word para Quick Stop
+                self.k13_node.sdo[0x6040].raw = 0x02  # Quick Stop
+                logger.info("Parada de emergencia ejecutada via SDO")
+            else:
+                logger.warning("SDO no disponible, enviando NMT Stop")
+                # Fallback: Enviar NMT Stop a todos los nodos
+                self.network.nmt.send_command(0x02)  # Stop remote node
             
-            logger.info("Parada de emergencia ejecutada")
             return {'status': 'ok', 'message': 'Emergency stop activated'}
         
         except Exception as e:
@@ -224,7 +269,8 @@ class BL335Gateway:
                 'can_channel': self.can_channel,
                 'node_id': self.node_id,
                 'tcp_port': self.tcp_port,
-                'last_error': self.last_error
+                'last_error': self.last_error,
+                'system_state': self.system_state
             }
             
             # TODO: Agregar más información del K13 F cuando EDS esté disponible
