@@ -1,5 +1,5 @@
 # ESP32 Gateway - CMakeLists.txt Principal
-# Proyecto de Gateway Ethernet-CAN para Danfoss K13 F
+# Proyecto de Gateway Ethernet-CAN para Danfoss R13 F
 
 cmake_minimum_required(VERSION 3.16)
 

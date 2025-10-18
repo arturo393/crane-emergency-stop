@@ -1,6 +1,6 @@
 # ESP32 Gateway - Crane Emergency Stop System
 
-Firmware para gateway ESP32-S3 que conecta sistema de control con receptor Danfoss K13 F vía CANopen.
+Firmware para gateway ESP32-S3 que conecta sistema de control con receptor Danfoss R13 F vía CANopen.
 
 ## 🚀 Características
 

@@ -2,7 +2,7 @@
 """
 Simulador CAN Virtual para Testing sin Hardware
 
-Simula el receptor Danfoss K13 F y responde a comandos CANopen.
+Simula el receptor Danfoss R13 F y responde a comandos CANopen.
 Útil para desarrollo y testing antes de tener hardware real.
 """
 
@@ -16,8 +16,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("CAN_Simulator")
 
 
-class K13FSimulator:
-    """Simulador del receptor Danfoss K13 F"""
+class R13FSimulator:
+    """Simulador del receptor Danfoss R13 F"""
     
     def __init__(self, channel='vcan0', node_id=1):
         """
@@ -41,7 +41,7 @@ class K13FSimulator:
             'error_count': 0
         }
         
-        logger.info(f"Simulador K13 F inicializado: Node ID={node_id}, Channel={channel}")
+        logger.info(f"Simulador R13 F inicializado: Node ID={node_id}, Channel={channel}")
     
     def start(self):
         """Iniciar simulador"""
@@ -216,7 +216,7 @@ def main():
     """Función principal para ejecutar el simulador"""
     import argparse
     
-    parser = argparse.ArgumentParser(description='Simulador CAN K13 F')
+    parser = argparse.ArgumentParser(description='Simulador CAN R13 F')
     parser.add_argument('--channel', default='vcan0', help='Canal CAN virtual')
     parser.add_argument('--node-id', type=int, default=1, help='ID del nodo')
     parser.add_argument('--verbose', action='store_true', help='Modo verbose')
@@ -227,10 +227,10 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
     
     # Crear y ejecutar simulador
-    simulator = K13FSimulator(channel=args.channel, node_id=args.node_id)
+    simulator = R13FSimulator(channel=args.channel, node_id=args.node_id)
     
     print("=" * 60)
-    print("🚀 Simulador CAN Danfoss K13 F")
+    print("🚀 Simulador CAN Danfoss R13 F")
     print("=" * 60)
     print(f"Canal: {args.channel}")
     print(f"Node ID: {args.node_id}")

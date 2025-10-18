@@ -284,7 +284,6 @@ Especificaciones del Cable:
 | Conectores DB9 CAN | 2 | $5 USD | $10 |
 | Gabinete industrial IP54 | 1 | $40 USD | $40 |
 | **SUBTOTAL HARDWARE** | | | **$246 USD** |
-| Envío desde China | 1 | $30 USD | $30 |
 | **TOTAL SISTEMA BL335** | | | **$276 USD** |
 | | | | **≈ $267.000 CLP** |
 
@@ -301,7 +300,6 @@ Especificaciones del Cable:
 | Antena WiFi externa | 1 | $12 USD | $12 |
 | Gabinete industrial IP54 | 1 | $40 USD | $40 |
 | **SUBTOTAL HARDWARE** | | | **$395 USD** |
-| Envío desde China | 1 | $35 USD | $35 |
 | **TOTAL SISTEMA ESP32-S3** | | | **$430 USD** |
 | | | | **≈ $416.000 CLP** |
 
@@ -507,5 +505,5 @@ Será seleccionado como **gateway definitivo del proyecto**.
 **Documento**: Arquitectura Sistema Completo  
 **Versión**: 1.0  
 **Fecha**: 16 de octubre de 2025  
-**Autor**: Proyecto Puente Grúa K13  
+**Autor**: Proyecto Puente Grúa R13 F  
 **Estado**: En evaluación - Esperando pruebas de campo

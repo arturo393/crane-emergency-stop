@@ -1,8 +1,8 @@
 """
-BL335 Gateway - Python CANopen Gateway para Danfoss K13 F
+BL335 Gateway - Python CANopen Gateway para Danfoss R13 F
 
 Implementación del gateway que conecta vía Ethernet (TCP/IP) y 
-se comunica con el receptor K13 F usando protocolo CANopen sobre SocketCAN.
+se comunica con el receptor R13 F usando protocolo CANopen sobre SocketCAN.
 """
 
 import canopen
@@ -10,6 +10,8 @@ import socket
 import json
 import logging
 import threading
+import time
+import os
 from typing import Dict, Any, Optional
 from datetime import datetime
 
@@ -26,7 +28,7 @@ class BL335Gateway:
         
         Args:
             can_channel: Canal CAN (can0, can1, vcan0 para testing)
-            node_id: ID del nodo K13 F en la red CANopen
+            node_id: ID del nodo R13 F en la red CANopen
             tcp_port: Puerto TCP para servidor
             can_interface: Interfaz CAN ('socketcan', 'virtual' para testing sin hardware)
         """
@@ -53,6 +55,10 @@ class BL335Gateway:
             'last_heartbeat': None
         }
         
+        # Estado de conexión
+        self.connected = False
+        self.last_error = None
+        
         logger.info(f"BL335 Gateway inicializado: CAN={can_channel}, Interface={can_interface}, Node={node_id}, Port={tcp_port}")
     
     def start(self):
@@ -72,12 +78,12 @@ class BL335Gateway:
                 self.network.connect(channel=self.can_channel, interface='socketcan', bitrate=250000)
                 logger.info("✅ Usando SocketCAN (kernel modules)")
             
-            # Agregar nodo K13 F
-            logger.info(f"Agregando nodo K13 F (ID={self.node_id})...")
+            # Agregar nodo R13 F
+            logger.info(f"Agregando nodo R13 F (ID={self.node_id})...")
             self.k13_node = self.network.add_node(self.node_id, object_dictionary=None)
             
             # TODO: Cargar EDS file cuando esté disponible
-            # self.k13_node = self.network.add_node(self.node_id, 'path/to/k13f.eds')
+            # self.k13_node = self.network.add_node(self.node_id, 'path/to/r13f.eds')
             
             self.connected = True
             logger.info("Red CANopen inicializada correctamente")
@@ -101,30 +107,170 @@ class BL335Gateway:
         try:
             logger.info("Configurando NMT y PDO...")
             
-            # Configurar heartbeat producer (cada 1000ms)
+            # Configurar NMT State Machine
             if hasattr(self.k13_node, 'nmt'):
+                # Reset Communication
+                self.k13_node.nmt.state = 'RESET COMMUNICATION'
+                time.sleep(0.1)
+                
+                # Reset Application
+                self.k13_node.nmt.state = 'RESET APPLICATION'
+                time.sleep(0.1)
+                
+                # Ir a PRE-OPERATIONAL
+                self.k13_node.nmt.state = 'PRE-OPERATIONAL'
+                time.sleep(0.1)
+                
+                # Finalmente OPERATIONAL
                 self.k13_node.nmt.state = 'OPERATIONAL'
                 self.system_state['operational'] = True
                 self.system_state['nmt_state'] = 'OPERATIONAL'
                 logger.info("NMT configurado: OPERATIONAL")
             
-            # Configurar heartbeat consumer para monitorear el nodo K13
-            # self.network.nmt.add_heartbeat(self.node_id, 1000)  # 1000ms timeout
+            # Configurar PDO completo
+            self._configure_pdo_mappings()
             
-            # Configurar PDO básico (TPDO1 para estado, RPDO1 para control)
-            # Nota: Requiere EDS file para configuración completa
-            logger.info("PDO básico configurado (pendiente EDS file)")
-            self.system_state['pdo_active'] = True
+            # Configurar heartbeat producer/consumer
+            self._configure_heartbeat()
             
-            # Configurar heartbeat monitoring
-            self.system_state['heartbeat_active'] = True
-            self.system_state['last_heartbeat'] = datetime.now()
+            # Configurar SYNC producer si es necesario
+            # self._configure_sync()
             
             logger.info("NMT y PDO configurados correctamente")
             
         except Exception as e:
             logger.error(f"Error configurando NMT/PDO: {e}")
             self.system_state['operational'] = False
+    
+    def _configure_pdo_mappings(self):
+        """Configurar mapeos de PDO (Process Data Objects)"""
+        try:
+            logger.info("Configurando mapeos PDO...")
+            
+            # Configurar RPDO1 (Receive PDO 1) - Para comandos de control
+            # RPDO1 Parameter (0x1400)
+            if hasattr(self.k13_node, 'pdo'):
+                # Configurar COB-ID para RPDO1 (0x200 + node_id)
+                rpdo1_cob_id = 0x200 + self.node_id
+                self.k13_node.pdo.rx[1].cob_id = rpdo1_cob_id
+                self.k13_node.pdo.rx[1].enabled = True
+                
+                # Configurar Transmission Type (255 = asynchronous)
+                self.k13_node.pdo.rx[1].transmission_type = 255
+                
+                # Configurar mapping de RPDO1 (0x1600)
+                # Map Control Word (0x6040:00) - 16 bits
+                self.k13_node.pdo.rx[1].mapping = [
+                    (0x6040, 0, 16),  # Control Word
+                ]
+                logger.info(f"RPDO1 configurado: COB-ID=0x{rpdo1_cob_id:03X}")
+            
+            # Configurar TPDO1 (Transmit PDO 1) - Para estado del dispositivo
+            if hasattr(self.k13_node, 'pdo'):
+                # Configurar COB-ID para TPDO1 (0x180 + node_id)
+                tpdo1_cob_id = 0x180 + self.node_id
+                self.k13_node.pdo.tx[1].cob_id = tpdo1_cob_id
+                self.k13_node.pdo.tx[1].enabled = True
+                
+                # Configurar Transmission Type (255 = asynchronous)
+                self.k13_node.pdo.tx[1].transmission_type = 255
+                
+                # Configurar mapping de TPDO1 (0x1A00)
+                # Map Status Word (0x6041:00) - 16 bits
+                self.k13_node.pdo.tx[1].mapping = [
+                    (0x6041, 0, 16),  # Status Word
+                ]
+                logger.info(f"TPDO1 configurado: COB-ID=0x{tpdo1_cob_id:03X}")
+            
+            # Configurar TPDO2 para datos adicionales (opcional)
+            if hasattr(self.k13_node, 'pdo'):
+                tpdo2_cob_id = 0x280 + self.node_id
+                self.k13_node.pdo.tx[2].cob_id = tpdo2_cob_id
+                self.k13_node.pdo.tx[2].enabled = True
+                self.k13_node.pdo.tx[2].transmission_type = 255
+                
+                # Map Position Actual Value (0x6064:00) - 32 bits
+                self.k13_node.pdo.tx[2].mapping = [
+                    (0x6064, 0, 32),  # Position Actual Value
+                ]
+                logger.info(f"TPDO2 configurado: COB-ID=0x{tpdo2_cob_id:03X}")
+            
+            self.system_state['pdo_active'] = True
+            logger.info("Mapeos PDO configurados correctamente")
+            
+        except Exception as e:
+            logger.error(f"Error configurando PDO mappings: {e}")
+            self.system_state['pdo_active'] = False
+    
+    def _configure_heartbeat(self):
+        """Configurar heartbeat producer/consumer"""
+        try:
+            logger.info("Configurando heartbeat...")
+            
+            # Configurar heartbeat producer (este nodo produce heartbeat)
+            if hasattr(self.k13_node, 'nmt'):
+                # Producer Heartbeat Time (0x1017) - 1000ms
+                self.k13_node.sdo[0x1017].raw = 1000
+                logger.info("Heartbeat producer configurado: 1000ms")
+            
+            # Configurar heartbeat consumer (monitorea otros nodos)
+            # Consumer Heartbeat Time (0x1016)
+            # Formato: Bit 15-16: Consumer number, Bit 0-15: Heartbeat time
+            # Para nodo 1: 0x00010000 | 1000 = 0x000103E8
+            heartbeat_config = (1 << 16) | 1000  # Consumer 1, 1000ms timeout
+            self.k13_node.sdo[0x1016][1].raw = heartbeat_config
+            logger.info("Heartbeat consumer configurado para nodo 1: 1000ms")
+            
+            self.system_state['heartbeat_active'] = True
+            self.system_state['last_heartbeat'] = datetime.now()
+            
+        except Exception as e:
+            logger.error(f"Error configurando heartbeat: {e}")
+            self.system_state['heartbeat_active'] = False
+    
+    def _configure_sync(self):
+        """Configurar SYNC producer (opcional)"""
+        try:
+            logger.info("Configurando SYNC producer...")
+            
+            # Communication Cycle Period (0x1006) - 10ms
+            self.k13_node.sdo[0x1006].raw = 10000  # microseconds
+            
+            # Synchronous Window Length (0x1007) - 5ms
+            self.k13_node.sdo[0x1007].raw = 5000   # microseconds
+            
+            logger.info("SYNC producer configurado: 10ms cycle, 5ms window")
+            
+        except Exception as e:
+            logger.error(f"Error configurando SYNC: {e}")
+    
+    def load_eds_file(self, eds_path: str) -> bool:
+        """
+        Cargar archivo EDS (Electronic Data Sheet)
+        
+        Args:
+            eds_path: Ruta al archivo EDS
+            
+        Returns:
+            True si se cargó correctamente
+        """
+        try:
+            logger.info(f"Cargando archivo EDS: {eds_path}")
+            
+            # Verificar que el archivo existe
+            if not os.path.exists(eds_path):
+                logger.error(f"Archivo EDS no encontrado: {eds_path}")
+                return False
+            
+            # Cargar EDS file
+            self.k13_node = self.network.add_node(self.node_id, eds_path)
+            
+            logger.info("✅ Archivo EDS cargado correctamente")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error cargando EDS file: {e}")
+            return False
     
     def stop(self):
         """Detener gateway"""
@@ -231,6 +377,21 @@ class BL335Gateway:
                 value = command.get('value')
                 return self.sdo_write(index, subindex, value)
             
+            elif cmd_type == 'pdo_read':
+                pdo_number = command.get('pdo_number', 1)
+                return self.pdo_read(pdo_number)
+            
+            elif cmd_type == 'pdo_write':
+                pdo_number = command.get('pdo_number', 1)
+                data_hex = command.get('data', '')
+                data = bytes.fromhex(data_hex) if data_hex else b''
+                return self.pdo_write(pdo_number, data)
+            
+            elif cmd_type == 'load_eds':
+                eds_path = command.get('eds_path', '')
+                success = self.load_eds_file(eds_path)
+                return {'status': 'ok' if success else 'error', 'message': 'EDS loaded' if success else 'EDS load failed'}
+            
             else:
                 return {'error': f'Unknown command: {cmd_type}'}
         
@@ -243,15 +404,19 @@ class BL335Gateway:
         logger.warning("⚠️  PARADA DE EMERGENCIA SOLICITADA")
         
         try:
-            # Enviar comando de parada via PDO o SDO
-            # Para K13 F, típicamente se usa Control Word (0x6040)
-            if hasattr(self.k13_node, 'sdo'):
-                # Intentar escribir Control Word para Quick Stop
+            # Intentar usar PDO primero (más rápido)
+            if hasattr(self.k13_node, 'pdo') and 1 in self.k13_node.pdo.rx:
+                # Enviar Quick Stop via RPDO1 (Control Word = 0x0002)
+                quick_stop_data = b'\x02\x00\x00\x00'  # Control Word: Quick Stop
+                self.k13_node.pdo.rx[1].data = quick_stop_data
+                logger.info("Parada de emergencia ejecutada via PDO")
+            elif hasattr(self.k13_node, 'sdo'):
+                # Fallback: usar SDO
                 self.k13_node.sdo[0x6040].raw = 0x02  # Quick Stop
                 logger.info("Parada de emergencia ejecutada via SDO")
             else:
+                # Último recurso: NMT Stop
                 logger.warning("SDO no disponible, enviando NMT Stop")
-                # Fallback: Enviar NMT Stop a todos los nodos
                 self.network.nmt.send_command(0x02)  # Stop remote node
             
             return {'status': 'ok', 'message': 'Emergency stop activated'}
@@ -273,13 +438,73 @@ class BL335Gateway:
                 'system_state': self.system_state
             }
             
-            # TODO: Agregar más información del K13 F cuando EDS esté disponible
-            # status['k13_state'] = self.k13_node.sdo[0x6041].raw  # Status Word
+            # Agregar información de PDO si está disponible
+            if hasattr(self.k13_node, 'pdo') and self.system_state['pdo_active']:
+                pdo_info = {}
+                
+                # Información de RPDO
+                for i in range(1, 5):  # RPDO 1-4
+                    if i in self.k13_node.pdo.rx:
+                        rpdo = self.k13_node.pdo.rx[i]
+                        pdo_info[f'rpdo_{i}'] = {
+                            'cob_id': rpdo.cob_id,
+                            'enabled': rpdo.enabled,
+                            'transmission_type': rpdo.transmission_type,
+                            'mapping': rpdo.mapping
+                        }
+                
+                # Información de TPDO
+                for i in range(1, 5):  # TPDO 1-4
+                    if i in self.k13_node.pdo.tx:
+                        tpdo = self.k13_node.pdo.tx[i]
+                        pdo_info[f'tpdo_{i}'] = {
+                            'cob_id': tpdo.cob_id,
+                            'enabled': tpdo.enabled,
+                            'transmission_type': tpdo.transmission_type,
+                            'mapping': tpdo.mapping
+                        }
+                
+                status['pdo_info'] = pdo_info
+            
+            # Intentar leer Status Word si está disponible
+            try:
+                if hasattr(self.k13_node, 'sdo'):
+                    status_word = self.k13_node.sdo[0x6041].raw
+                    status['k13_status_word'] = status_word
+                    status['k13_decoded_status'] = self._decode_status_word(status_word)
+            except:
+                status['k13_status_word'] = None
+                status['k13_decoded_status'] = None
             
             return status
         
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
+    
+    def _decode_status_word(self, status_word: int) -> Dict[str, bool]:
+        """
+        Decodificar Status Word del dispositivo
+        
+        Args:
+            status_word: Valor del Status Word
+            
+        Returns:
+            Diccionario con estado decodificado
+        """
+        return {
+            'ready_to_switch_on': bool(status_word & (1 << 0)),
+            'switched_on': bool(status_word & (1 << 1)),
+            'operation_enabled': bool(status_word & (1 << 2)),
+            'fault': bool(status_word & (1 << 3)),
+            'voltage_enabled': bool(status_word & (1 << 4)),
+            'quick_stop': bool(status_word & (1 << 5)),
+            'switch_on_disabled': bool(status_word & (1 << 6)),
+            'warning': bool(status_word & (1 << 7)),
+            'manufacturer_specific': bool(status_word & (1 << 8)),
+            'remote': bool(status_word & (1 << 9)),
+            'target_reached': bool(status_word & (1 << 10)),
+            'internal_limit': bool(status_word & (1 << 11)),
+        }
     
     def reset(self) -> Dict[str, Any]:
         """Reset del sistema"""
@@ -335,6 +560,77 @@ class BL335Gateway:
         except Exception as e:
             logger.error(f"Error escribiendo SDO: {e}")
             return {'status': 'error', 'message': str(e)}
+    
+    def pdo_read(self, pdo_number: int) -> Dict[str, Any]:
+        """
+        Leer datos de PDO
+        
+        Args:
+            pdo_number: Número del PDO (1-4 para TPDO, 1-4 para RPDO)
+            
+        Returns:
+            Diccionario con datos del PDO
+        """
+        try:
+            if not hasattr(self.k13_node, 'pdo'):
+                return {'status': 'error', 'message': 'PDO not supported'}
+            
+            if pdo_number not in self.k13_node.pdo.tx:
+                return {'status': 'error', 'message': f'TPDO{pdo_number} not configured'}
+            
+            # Leer datos del PDO
+            pdo_data = self.k13_node.pdo.tx[pdo_number].data
+            cob_id = self.k13_node.pdo.tx[pdo_number].cob_id
+            
+            logger.info(f"PDO Read TPDO{pdo_number}: COB-ID=0x{cob_id:03X}, Data={pdo_data.hex()}")
+            
+            return {
+                'status': 'ok',
+                'pdo_number': pdo_number,
+                'cob_id': cob_id,
+                'data': list(pdo_data),
+                'data_hex': pdo_data.hex()
+            }
+        
+        except Exception as e:
+            logger.error(f"Error leyendo PDO: {e}")
+            return {'status': 'error', 'message': str(e)}
+    
+    def pdo_write(self, pdo_number: int, data: bytes) -> Dict[str, Any]:
+        """
+        Escribir datos a PDO
+        
+        Args:
+            pdo_number: Número del PDO (1-4 para RPDO)
+            data: Datos a escribir
+            
+        Returns:
+            Diccionario con resultado
+        """
+        try:
+            if not hasattr(self.k13_node, 'pdo'):
+                return {'status': 'error', 'message': 'PDO not supported'}
+            
+            if pdo_number not in self.k13_node.pdo.rx:
+                return {'status': 'error', 'message': f'RPDO{pdo_number} not configured'}
+            
+            # Escribir datos al PDO
+            self.k13_node.pdo.rx[pdo_number].data = data
+            cob_id = self.k13_node.pdo.rx[pdo_number].cob_id
+            
+            logger.info(f"PDO Write RPDO{pdo_number}: COB-ID=0x{cob_id:03X}, Data={data.hex()}")
+            
+            return {
+                'status': 'ok',
+                'pdo_number': pdo_number,
+                'cob_id': cob_id,
+                'data': list(data),
+                'data_hex': data.hex()
+            }
+        
+        except Exception as e:
+            logger.error(f"Error escribiendo PDO: {e}")
+            return {'status': 'error', 'message': str(e)}
 
 
 def main():
@@ -346,8 +642,9 @@ def main():
     parser.add_argument('--interface', default='virtual', 
                        choices=['socketcan', 'virtual'],
                        help='Interfaz CAN: socketcan (Linux real) o virtual (testing)')
-    parser.add_argument('--node-id', type=int, default=1, help='Node ID del K13 F')
+    parser.add_argument('--node-id', type=int, default=1, help='Node ID del R13 F')
     parser.add_argument('--port', type=int, default=9999, help='Puerto TCP')
+    parser.add_argument('--eds', help='Ruta al archivo EDS del R13 F')
     parser.add_argument('--verbose', action='store_true', help='Modo verbose')
     
     args = parser.parse_args()
@@ -355,13 +652,34 @@ def main():
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     
-    # Crear y ejecutar gateway
+    # Crear gateway
     gateway = BL335Gateway(
         can_channel=args.can,
         node_id=args.node_id,
         tcp_port=args.port,
         can_interface=args.interface
     )
+    
+    # Cargar EDS file si se especificó
+    if args.eds:
+        if not gateway.load_eds_file(args.eds):
+            print(f"⚠️  Error cargando EDS file: {args.eds}")
+            print("Continuando sin EDS file...")
+    
+    print("=" * 60)
+    print("🚀 BL335 Gateway - Python CANopen")
+    print("=" * 60)
+    print(f"CAN Channel: {args.can}")
+    print(f"CAN Interface: {args.interface}")
+    print(f"Node ID: {args.node_id}")
+    print(f"TCP Port: {args.port}")
+    if args.eds:
+        print(f"EDS File: {args.eds}")
+    print("\nModos de interfaz CAN:")
+    print("  - socketcan: Linux con módulos kernel (producción)")
+    print("  - virtual: Sin módulos kernel (testing/desarrollo)")
+    print("\nPresiona Ctrl+C para detener")
+    print("=" * 60)
     
     print("=" * 60)
     print("🚀 BL335 Gateway - Python CANopen")

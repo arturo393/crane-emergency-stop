@@ -14,7 +14,7 @@ All notable changes to this project are documented in this file.
   - Soporte interfaz `virtual` para testing sin módulos kernel
   - README completo con ejemplos de cliente y protocolo
   
-- **K13 F Simulator** (✅ COMPLETO):
+- **R13 F Simulator** (✅ COMPLETO):
   - `tools/can_simulator.py`: Simulador completo (314 líneas)
   - CANopen completo: Heartbeat (500ms), NMT, SDO
   - Simulación de emergency stop
