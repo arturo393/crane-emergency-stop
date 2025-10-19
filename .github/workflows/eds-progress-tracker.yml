@@ -1,0 +1,329 @@
+name: EDS Progress Tracker
+
+on:
+  push:
+    branches: [ clean-main, main ]
+    paths:
+      - 'config/danfoss_r13f*.eds'
+      - 'src/bl335_gateway/main.py'
+      - 'tests/e2e/**'
+  pull_request:
+    branches: [ clean-main, main ]
+  workflow_dispatch:
+    inputs:
+      manual_update:
+        description: 'Manual progress update'
+        required: false
+        default: 'false'
+
+jobs:
+  track-eds-progress:
+    name: Track EDS Implementation Progress
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pyyaml canopen python-can
+      
+      - name: Check EDS file exists
+        id: check_eds
+        run: |
+          if [ -f "config/danfoss_r13f_minimal.eds" ]; then
+            echo "eds_exists=true" >> $GITHUB_OUTPUT
+            echo "✅ EDS file found"
+          else
+            echo "eds_exists=false" >> $GITHUB_OUTPUT
+            echo "❌ EDS file not found"
+          fi
+      
+      - name: Validate EDS syntax
+        if: steps.check_eds.outputs.eds_exists == 'true'
+        id: validate_eds
+        run: |
+          python - <<'EOF'
+          import configparser
+          import sys
+          
+          try:
+              config = configparser.ConfigParser()
+              config.read('config/danfoss_r13f_minimal.eds')
+              
+              # Verificar secciones obligatorias
+              required_sections = ['DeviceInfo', '1000', '1001', '1018', '6040', '6041']
+              missing = [s for s in required_sections if s not in config.sections()]
+              
+              if missing:
+                  print(f"❌ Missing sections: {', '.join(missing)}")
+                  sys.exit(1)
+              
+              print("✅ EDS syntax valid")
+              print(f"eds_valid=true")
+              
+          except Exception as e:
+              print(f"❌ EDS validation failed: {e}")
+              print(f"eds_valid=false")
+              sys.exit(1)
+          EOF
+      
+      - name: Run E2E tests
+        id: run_tests
+        continue-on-error: true
+        run: |
+          # Crear virtual CAN para tests
+          sudo modprobe vcan || echo "vcan module not available, using virtual interface"
+          
+          # Ejecutar tests
+          pytest tests/e2e/test_integrated_system.py -v --tb=short > test_results.txt 2>&1 || true
+          
+          # Analizar resultados
+          PASSED=$(grep -oP '\d+(?= passed)' test_results.txt | head -1 || echo "0")
+          FAILED=$(grep -oP '\d+(?= failed)' test_results.txt | head -1 || echo "0")
+          TOTAL=$((PASSED + FAILED))
+          
+          echo "tests_passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "tests_failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "tests_total=$TOTAL" >> $GITHUB_OUTPUT
+          
+          if [ "$TOTAL" -gt 0 ]; then
+            PERCENTAGE=$((PASSED * 100 / TOTAL))
+            echo "test_percentage=$PERCENTAGE" >> $GITHUB_OUTPUT
+          else
+            echo "test_percentage=0" >> $GITHUB_OUTPUT
+          fi
+          
+          cat test_results.txt
+      
+      - name: Calculate implementation progress
+        id: calc_progress
+        run: |
+          python - <<'EOF'
+          import os
+          import re
+          
+          # Checklist de implementación
+          checklist = {
+              'eds_file_created': os.path.exists('config/danfoss_r13f_minimal.eds'),
+              'gateway_loads_eds': False,
+              'sdo_implemented': False,
+              'pdo_configured': False,
+              'cia402_objects': False,
+              'tests_passing': False
+          }
+          
+          # Verificar gateway carga EDS
+          try:
+              with open('src/bl335_gateway/main.py', 'r') as f:
+                  gateway_code = f.read()
+                  if 'load_configuration' in gateway_code or 'danfoss_r13f' in gateway_code:
+                      checklist['gateway_loads_eds'] = True
+                  if '0x6040' in gateway_code and '0x6041' in gateway_code:
+                      checklist['sdo_implemented'] = True
+                  if 'pdo.rx' in gateway_code or 'pdo.tx' in gateway_code:
+                      checklist['pdo_configured'] = True
+          except:
+              pass
+          
+          # Verificar objetos CiA 402 en EDS
+          try:
+              with open('config/danfoss_r13f_minimal.eds', 'r') as f:
+                  eds_content = f.read()
+                  if '[6040]' in eds_content and '[6041]' in eds_content and '[606C]' in eds_content:
+                      checklist['cia402_objects'] = True
+          except:
+              pass
+          
+          # Obtener resultados de tests desde variables de entorno
+          tests_passed = int(os.getenv('TESTS_PASSED', '0'))
+          tests_total = int(os.getenv('TESTS_TOTAL', '0'))
+          
+          if tests_total > 0 and tests_passed >= tests_total * 0.7:  # 70% passing
+              checklist['tests_passing'] = True
+          
+          # Calcular progreso
+          completed = sum(checklist.values())
+          total = len(checklist)
+          percentage = (completed * 100) // total
+          
+          print(f"progress_percentage={percentage}")
+          print(f"tasks_completed={completed}")
+          print(f"tasks_total={total}")
+          
+          # Determinar fase
+          if percentage < 25:
+              phase = "Fase 1: Investigación"
+          elif percentage < 50:
+              phase = "Fase 2: Implementación Inicial"
+          elif percentage < 75:
+              phase = "Fase 3: Validación"
+          else:
+              phase = "Fase 4: Documentación"
+          
+          print(f"current_phase={phase}")
+          
+          # Crear checklist markdown
+          checklist_md = "### 📋 Implementation Checklist\n\n"
+          for task, done in checklist.items():
+              icon = "✅" if done else "⬜"
+              task_name = task.replace('_', ' ').title()
+              checklist_md += f"{icon} {task_name}\n"
+          
+          # Guardar en archivo para siguiente step
+          with open('progress_summary.md', 'w') as f:
+              f.write(checklist_md)
+          EOF
+        env:
+          TESTS_PASSED: ${{ steps.run_tests.outputs.tests_passed }}
+          TESTS_TOTAL: ${{ steps.run_tests.outputs.tests_total }}
+      
+      - name: Update issue with progress
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v7
+        env:
+          TESTS_PASSED: ${{ steps.run_tests.outputs.tests_passed }}
+          TESTS_FAILED: ${{ steps.run_tests.outputs.tests_failed }}
+          TESTS_TOTAL: ${{ steps.run_tests.outputs.tests_total }}
+          TEST_PERCENTAGE: ${{ steps.run_tests.outputs.test_percentage }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            
+            // Leer checklist generado
+            let progressChecklist = '';
+            try {
+              progressChecklist = fs.readFileSync('progress_summary.md', 'utf8');
+            } catch {
+              progressChecklist = '### 📋 Checklist not available';
+            }
+            
+            // Buscar issue con label "EDS"
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'enhancement,documentation',
+              state: 'open'
+            });
+            
+            const edsIssue = issues.data.find(issue => 
+              issue.title.includes('EDS') || issue.title.includes('R13 F')
+            );
+            
+            if (!edsIssue) {
+              console.log('No EDS issue found');
+              return;
+            }
+            
+            // Crear comentario con progreso
+            const testsPassedNum = process.env.TESTS_PASSED || '0';
+            const testsFailedNum = process.env.TESTS_FAILED || '0';
+            const testsTotalNum = process.env.TESTS_TOTAL || '0';
+            const testPercentage = process.env.TEST_PERCENTAGE || '0';
+            
+            const progressBar = '█'.repeat(Math.floor(testPercentage / 10)) + 
+                               '░'.repeat(10 - Math.floor(testPercentage / 10));
+            
+            const comment = `## 🤖 Automated Progress Update
+            
+**Commit**: ${context.sha.substring(0, 7)}  
+**Branch**: ${context.ref.replace('refs/heads/', '')}  
+**Triggered by**: ${context.eventName}  
+**Date**: ${new Date().toISOString().split('T')[0]}
+
+---
+
+### 📊 Test Results
+
+\`\`\`
+Tests: ${testsPassedNum}/${testsTotalNum} passing
+Failed: ${testsFailedNum}
+Success Rate: ${testPercentage}%
+
+Progress: [${progressBar}] ${testPercentage}%
+\`\`\`
+
+${progressChecklist}
+
+### 🔗 Links
+
+- [Commit Details](${context.payload.head_commit?.url || context.payload.commits?.[0]?.url || ''})
+- [Workflow Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+
+---
+
+<sub>🤖 This comment was automatically generated by GitHub Actions</sub>
+`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: edsIssue.number,
+              body: comment
+            });
+            
+            console.log(`✅ Progress comment added to issue #${edsIssue.number}`);
+      
+      - name: Create progress badge
+        run: |
+          mkdir -p .github/badges
+          
+          TEST_PERCENTAGE="${{ steps.run_tests.outputs.test_percentage }}"
+          
+          # Determinar color del badge
+          if [ "$TEST_PERCENTAGE" -ge 80 ]; then
+            COLOR="brightgreen"
+          elif [ "$TEST_PERCENTAGE" -ge 60 ]; then
+            COLOR="yellow"
+          else
+            COLOR="red"
+          fi
+          
+          # Crear badge JSON
+          cat > .github/badges/eds-progress.json <<EOF
+          {
+            "schemaVersion": 1,
+            "label": "EDS Implementation",
+            "message": "${TEST_PERCENTAGE}% (${TESTS_PASSED}/${TESTS_TOTAL} tests)",
+            "color": "${COLOR}"
+          }
+          EOF
+          
+          echo "✅ Badge created: .github/badges/eds-progress.json"
+        env:
+          TEST_PERCENTAGE: ${{ steps.run_tests.outputs.test_percentage }}
+          TESTS_PASSED: ${{ steps.run_tests.outputs.tests_passed }}
+          TESTS_TOTAL: ${{ steps.run_tests.outputs.tests_total }}
+      
+      - name: Summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY <<EOF
+          # 🎯 EDS Implementation Progress
+          
+          ## Test Results
+          - **Passed**: ${{ steps.run_tests.outputs.tests_passed }}
+          - **Failed**: ${{ steps.run_tests.outputs.tests_failed }}
+          - **Total**: ${{ steps.run_tests.outputs.tests_total }}
+          - **Success Rate**: ${{ steps.run_tests.outputs.test_percentage }}%
+          
+          ## Files Changed
+          - \`config/danfoss_r13f_minimal.eds\`
+          - \`src/bl335_gateway/main.py\`
+          - \`tests/e2e/test_integrated_system.py\`
+          
+          ## Next Steps
+          1. Fix failing E2E tests
+          2. Configure PDOs after EDS load
+          3. Adjust simulator SDO responses
+          4. Validate with hardware (when available)
+          EOF

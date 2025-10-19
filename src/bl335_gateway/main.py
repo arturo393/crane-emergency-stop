@@ -6,6 +6,7 @@ se comunica con el receptor R13 F usando protocolo CANopen sobre SocketCAN.
 """
 
 import canopen
+import can  # Fallback para envío CAN en crudo cuando no hay EDS/PDOs
 import socket
 import json
 import logging
@@ -78,12 +79,18 @@ class BL335Gateway:
                 self.network.connect(channel=self.can_channel, interface='socketcan', bitrate=250000)
                 logger.info("✅ Usando SocketCAN (kernel modules)")
             
-            # Agregar nodo R13 F
+            # Agregar nodo R13 F con EDS
             logger.info(f"Agregando nodo R13 F (ID={self.node_id})...")
-            self.k13_node = self.network.add_node(self.node_id, object_dictionary=None)
             
-            # TODO: Cargar EDS file cuando esté disponible
-            # self.k13_node = self.network.add_node(self.node_id, 'path/to/r13f.eds')
+            # Cargar EDS file (mínimo para desarrollo)
+            eds_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'danfoss_r13f_minimal.eds')
+            if os.path.exists(eds_path):
+                logger.info(f"Cargando EDS desde: {eds_path}")
+                self.k13_node = self.network.add_node(self.node_id, eds_path)
+                logger.info("✅ EDS cargado correctamente")
+            else:
+                logger.warning(f"⚠️  EDS no encontrado en {eds_path}, usando Object Dictionary vacío")
+                self.k13_node = self.network.add_node(self.node_id, object_dictionary=None)
             
             self.connected = True
             logger.info("Red CANopen inicializada correctamente")
@@ -400,33 +407,38 @@ class BL335Gateway:
             return {'error': str(e)}
     
     def emergency_stop(self) -> Dict[str, Any]:
-        """Ejecutar parada de emergencia"""
+        """Ejecutar parada de emergencia usando CiA 402 Control Word"""
         logger.warning("⚠️  PARADA DE EMERGENCIA SOLICITADA")
         
         try:
-            # Intentar usar PDO primero (más rápido)
-            if hasattr(self.k13_node, 'pdo') and 1 in self.k13_node.pdo.rx:
-                # Enviar Quick Stop via RPDO1 (Control Word = 0x0002)
-                quick_stop_data = b'\x02\x00\x00\x00'  # Control Word: Quick Stop
-                self.k13_node.pdo.rx[1].data = quick_stop_data
-                logger.info("Parada de emergencia ejecutada via PDO")
-            elif hasattr(self.k13_node, 'sdo'):
-                # Fallback: usar SDO
-                self.k13_node.sdo[0x6040].raw = 0x02  # Quick Stop
-                logger.info("Parada de emergencia ejecutada via SDO")
-            else:
-                # Último recurso: NMT Stop
-                logger.warning("SDO no disponible, enviando NMT Stop")
-                self.network.nmt.send_command(0x02)  # Stop remote node
+            # Método 1: Usar SDO con Object Dictionary (preferido si EDS cargado)
+            if hasattr(self.k13_node, 'sdo'):
+                try:
+                    # Control Word: Quick Stop (bit 2 = 0)
+                    # CiA 402: Quick Stop = 0x0002 (solo Enable Voltage)
+                    self.k13_node.sdo[0x6040].raw = 0x0002
+                    logger.info("✅ Parada de emergencia ejecutada via SDO (Control Word=0x0002)")
+                    return {'status': 'ok', 'message': 'Emergency stop activated via SDO'}
+                except Exception as sdo_error:
+                    logger.warning(f"SDO falló: {sdo_error}, intentando PDO...")
             
-            return {'status': 'ok', 'message': 'Emergency stop activated'}
+            # Método 2: Usar PDO si está configurado
+            if hasattr(self.k13_node, 'pdo') and 1 in self.k13_node.pdo.rx:
+                quick_stop_data = b'\x02\x00'  # Control Word: 0x0002 (Quick Stop)
+                self.k13_node.pdo.rx[1].data = quick_stop_data
+                logger.info("✅ Parada de emergencia ejecutada via PDO")
+                return {'status': 'ok', 'message': 'Emergency stop activated via PDO'}
+            
+            # Método 3: Fallback - enviar CAN raw
+            logger.warning("Usando fallback: enviando CAN raw")
+            return self.pdo_write(1, b'\x02\x00')
         
         except Exception as e:
-            logger.error(f"Error en parada de emergencia: {e}")
+            logger.error(f"❌ Error en parada de emergencia: {e}")
             return {'status': 'error', 'message': str(e)}
     
     def get_status(self) -> Dict[str, Any]:
-        """Obtener estado del sistema"""
+        """Obtener estado completo del sistema incluyendo Object Dictionary"""
         try:
             status = {
                 'status': 'ok',
@@ -437,6 +449,50 @@ class BL335Gateway:
                 'last_error': self.last_error,
                 'system_state': self.system_state
             }
+            
+            # Información del Object Dictionary si está disponible
+            if hasattr(self.k13_node, 'object_dictionary') and self.k13_node.object_dictionary:
+                status['eds_loaded'] = True
+                status['device_type'] = self.k13_node.object_dictionary.device_information.product_name if hasattr(self.k13_node.object_dictionary, 'device_information') else 'Unknown'
+            else:
+                status['eds_loaded'] = False
+                status['device_type'] = None
+            
+            # Intentar leer objetos CiA 402 vía SDO
+            if hasattr(self.k13_node, 'sdo'):
+                try:
+                    # Status Word (0x6041)
+                    status_word = self.k13_node.sdo[0x6041].raw
+                    status['status_word'] = f"0x{status_word:04X}"
+                    status['device_state'] = self._decode_status_word(status_word)
+                except Exception as e:
+                    logger.debug(f"No se pudo leer Status Word: {e}")
+                    status['status_word'] = None
+                    status['device_state'] = None
+                
+                try:
+                    # Control Word (0x6040)
+                    control_word = self.k13_node.sdo[0x6040].raw
+                    status['control_word'] = f"0x{control_word:04X}"
+                except Exception as e:
+                    logger.debug(f"No se pudo leer Control Word: {e}")
+                    status['control_word'] = None
+                
+                try:
+                    # Velocity Actual Value (0x606C)
+                    velocity = self.k13_node.sdo[0x606C].raw
+                    status['velocity'] = velocity
+                except Exception as e:
+                    logger.debug(f"No se pudo leer Velocity: {e}")
+                    status['velocity'] = None
+                
+                try:
+                    # Position Actual Value (0x6064)
+                    position = self.k13_node.sdo[0x6064].raw
+                    status['position'] = position
+                except Exception as e:
+                    logger.debug(f"No se pudo leer Position: {e}")
+                    status['position'] = None
             
             # Agregar información de PDO si está disponible
             if hasattr(self.k13_node, 'pdo') and self.system_state['pdo_active']:
@@ -465,16 +521,6 @@ class BL335Gateway:
                         }
                 
                 status['pdo_info'] = pdo_info
-            
-            # Intentar leer Status Word si está disponible
-            try:
-                if hasattr(self.k13_node, 'sdo'):
-                    status_word = self.k13_node.sdo[0x6041].raw
-                    status['k13_status_word'] = status_word
-                    status['k13_decoded_status'] = self._decode_status_word(status_word)
-            except:
-                status['k13_status_word'] = None
-                status['k13_decoded_status'] = None
             
             return status
         
@@ -507,15 +553,37 @@ class BL335Gateway:
         }
     
     def reset(self) -> Dict[str, Any]:
-        """Reset del sistema"""
+        """Reset del sistema usando NMT y Fault Reset"""
         logger.info("Reset solicitado")
         
         try:
-            # Enviar NMT Reset
+            # Paso 1: Si hay EDS, intentar Fault Reset via Control Word
+            if hasattr(self.k13_node, 'sdo'):
+                try:
+                    # CiA 402: Fault Reset (bit 7 = 1)
+                    # Control Word = 0x0080
+                    self.k13_node.sdo[0x6040].raw = 0x0080
+                    logger.info("✅ Fault Reset ejecutado via SDO")
+                    time.sleep(0.1)  # Dar tiempo al dispositivo
+                except Exception as sdo_error:
+                    logger.warning(f"Fault Reset via SDO falló: {sdo_error}")
+            
+            # Paso 2: NMT Reset Node
             self.k13_node.nmt.send_command(0x81)  # Reset Node
-            logger.info("Reset ejecutado")
-            return {'status': 'ok', 'message': 'Reset sent'}
+            logger.info("✅ NMT Reset ejecutado")
+            
+            # Paso 3: Esperar a que el nodo reinicie
+            time.sleep(0.5)
+            
+            # Paso 4: Poner en modo operacional
+            self.k13_node.nmt.state = 'OPERATIONAL'
+            logger.info("✅ Nodo en estado OPERATIONAL")
+            
+            return {'status': 'ok', 'message': 'System reset completed'}
         
+        except Exception as e:
+            logger.error(f"❌ Error en reset: {e}")
+            return {'status': 'error', 'message': str(e)}
         except Exception as e:
             logger.error(f"Error en reset: {e}")
             return {'status': 'error', 'message': str(e)}
@@ -582,14 +650,15 @@ class BL335Gateway:
             pdo_data = self.k13_node.pdo.tx[pdo_number].data
             cob_id = self.k13_node.pdo.tx[pdo_number].cob_id
             
-            logger.info(f"PDO Read TPDO{pdo_number}: COB-ID=0x{cob_id:03X}, Data={pdo_data.hex()}")
+            cob_id_str = f"0x{cob_id:03X}" if cob_id is not None else "None"
+            logger.info(f"PDO Read TPDO{pdo_number}: COB-ID={cob_id_str}, Data={pdo_data.hex() if pdo_data else 'None'}")
             
             return {
                 'status': 'ok',
                 'pdo_number': pdo_number,
                 'cob_id': cob_id,
-                'data': list(pdo_data),
-                'data_hex': pdo_data.hex()
+                'data': list(pdo_data) if pdo_data else [],
+                'data_hex': pdo_data.hex() if pdo_data else ''
             }
         
         except Exception as e:
@@ -608,26 +677,43 @@ class BL335Gateway:
             Diccionario con resultado
         """
         try:
-            if not hasattr(self.k13_node, 'pdo'):
-                return {'status': 'error', 'message': 'PDO not supported'}
-            
-            if pdo_number not in self.k13_node.pdo.rx:
-                return {'status': 'error', 'message': f'RPDO{pdo_number} not configured'}
-            
-            # Escribir datos al PDO
-            self.k13_node.pdo.rx[pdo_number].data = data
-            cob_id = self.k13_node.pdo.rx[pdo_number].cob_id
-            
-            logger.info(f"PDO Write RPDO{pdo_number}: COB-ID=0x{cob_id:03X}, Data={data.hex()}")
-            
+            # Ruta normal con PDOs configurados
+            if hasattr(self.k13_node, 'pdo') and pdo_number in getattr(self.k13_node.pdo, 'rx', {}):
+                # Escribir datos al PDO
+                self.k13_node.pdo.rx[pdo_number].data = data
+                cob_id = self.k13_node.pdo.rx[pdo_number].cob_id
+                cob_id_str = f"0x{cob_id:03X}" if cob_id is not None else "None"
+                logger.info(f"PDO Write RPDO{pdo_number}: COB-ID={cob_id_str}, Data={data.hex()}")
+                return {
+                    'status': 'ok',
+                    'pdo_number': pdo_number,
+                    'cob_id': cob_id,
+                    'data': list(data),
+                    'data_hex': data.hex()
+                }
+
+            # Fallback: enviar CAN en crudo usando COB-IDs por defecto (CiA 301)
+            default_bases = {1: 0x200, 2: 0x300, 3: 0x400, 4: 0x500}
+            base = default_bases.get(pdo_number)
+            if base is None:
+                return {'status': 'error', 'message': f'RPDO{pdo_number} not supported'}
+
+            cob_id = base + int(self.node_id)
+            if not hasattr(self.network, 'bus') or self.network.bus is None:
+                return {'status': 'error', 'message': 'CAN bus not available'}
+
+            msg = can.Message(arbitration_id=cob_id, data=data, is_extended_id=False)
+            self.network.bus.send(msg)
+            logger.info(f"PDO RAW Write RPDO{pdo_number}: COB-ID=0x{cob_id:03X}, Data={data.hex()}")
             return {
                 'status': 'ok',
                 'pdo_number': pdo_number,
                 'cob_id': cob_id,
                 'data': list(data),
-                'data_hex': data.hex()
+                'data_hex': data.hex(),
+                'raw': True
             }
-        
+
         except Exception as e:
             logger.error(f"Error escribiendo PDO: {e}")
             return {'status': 'error', 'message': str(e)}

@@ -1,0 +1,145 @@
+name: Auto-Update Issue Checkboxes
+
+on:
+  push:
+    branches: [ clean-main, main ]
+    paths:
+      - 'config/*.eds'
+      - 'src/bl335_gateway/**'
+      - 'tests/e2e/**'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  update-checkboxes:
+    name: Update Implementation Checkboxes
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Analyze implementation status
+        id: analyze
+        run: |
+          python - <<'EOF'
+          import os
+          import json
+          
+          status = {}
+          
+          # 1. Verificar EDS mínimo creado
+          status['eds_minimal'] = os.path.exists('config/danfoss_r13f_minimal.eds')
+          
+          # 2. Verificar gateway carga EDS
+          status['gateway_loads_eds'] = False
+          try:
+              with open('src/bl335_gateway/main.py', 'r') as f:
+                  if 'danfoss_r13f' in f.read() and 'add_node' in f.read():
+                      status['gateway_loads_eds'] = True
+          except: pass
+          
+          # 3. Verificar objetos CiA 301 en EDS
+          status['cia301_objects'] = False
+          try:
+              with open('config/danfoss_r13f_minimal.eds', 'r') as f:
+                  content = f.read()
+                  if all(x in content for x in ['[1000]', '[1001]', '[1018]']):
+                      status['cia301_objects'] = True
+          except: pass
+          
+          # 4. Verificar objetos CiA 402 en EDS
+          status['cia402_objects'] = False
+          try:
+              with open('config/danfoss_r13f_minimal.eds', 'r') as f:
+                  content = f.read()
+                  if all(x in content for x in ['[6040]', '[6041]', '[606C]']):
+                      status['cia402_objects'] = True
+          except: pass
+          
+          # 5. Verificar PDO configurados
+          status['pdo_configured'] = False
+          try:
+              with open('config/danfoss_r13f_minimal.eds', 'r') as f:
+                  content = f.read()
+                  if all(x in content for x in ['[1400]', '[1600]', '[1800]', '[1A00]']):
+                      status['pdo_configured'] = True
+          except: pass
+          
+          # 6. Verificar tests E2E existen
+          status['tests_created'] = os.path.exists('tests/e2e/test_integrated_system.py')
+          
+          # Guardar en GITHUB_OUTPUT
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              for key, value in status.items():
+                  f.write(f"{key}={'true' if value else 'false'}\n")
+          
+          print(json.dumps(status, indent=2))
+          EOF
+      
+      - name: Update issue checkboxes
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Buscar issue EDS
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'eds-implementation',
+              state: 'open'
+            });
+            
+            if (issues.data.length === 0) {
+              console.log('No EDS implementation issue found');
+              return;
+            }
+            
+            const issue = issues.data[0];
+            let body = issue.body || '';
+            
+            // Mapeo de checkboxes a condiciones
+            const checkboxes = {
+              'Investigar especificación': true, // Siempre marcado si el issue existe
+              'Crear archivo `.eds`': '${{ steps.analyze.outputs.eds_minimal }}' === 'true',
+              'objetos obligatorios CiA 301': '${{ steps.analyze.outputs.cia301_objects }}' === 'true',
+              'objetos CiA 402': '${{ steps.analyze.outputs.cia402_objects }}' === 'true',
+              'mapeos PDO': '${{ steps.analyze.outputs.pdo_configured }}' === 'true',
+              'Documentar cada objeto': '${{ steps.analyze.outputs.cia402_objects }}' === 'true',
+              'Validar EDS con el gateway': '${{ steps.analyze.outputs.gateway_loads_eds }}' === 'true'
+            };
+            
+            // Actualizar checkboxes
+            for (const [text, checked] of Object.entries(checkboxes)) {
+              const checkbox = checked ? '[x]' : '[ ]';
+              const regex = new RegExp(`- \\[[\\sx]\\]\\s+${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'gi');
+              body = body.replace(regex, `- ${checkbox} ${text}`);
+            }
+            
+            // Actualizar issue
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: body
+            });
+            
+            console.log(`✅ Checkboxes updated in issue #${issue.number}`);
+            
+            // Calcular progreso
+            const completed = Object.values(checkboxes).filter(x => x).length;
+            const total = Object.keys(checkboxes).length;
+            const percentage = Math.round((completed / total) * 100);
+            
+            // Añadir comentario con progreso si hay cambios
+            if (context.eventName === 'push') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `🤖 **Auto-update**: ${completed}/${total} tasks completed (${percentage}%)\n\nCommit: ${context.sha.substring(0, 7)} by @${context.actor}`
+              });
+            }

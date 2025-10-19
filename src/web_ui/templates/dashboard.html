@@ -21,9 +21,10 @@
         .status-connected { color: #10b981; }
         .status-disconnected { color: #ef4444; }
         .status-error { color: #f59e0b; }
+        [x-cloak] { display: none !important; }
     </style>
 </head>
-<body class="bg-gray-100" x-data="dashboard()">
+<body class="bg-gray-100" x-data="dashboard()" x-init="init()">
     <!-- Header -->
     <header class="bg-blue-600 text-white shadow-lg">
         <div class="container mx-auto px-4 py-4">
@@ -105,8 +106,8 @@
                     @click="emergencyStop()"
                     :disabled="loading"
                     class="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-bold py-4 px-6 rounded-lg shadow-lg transition-colors duration-200">
-                    <span x-show="!loading">🛑 PARADA DE EMERGENCIA</span>
-                    <span x-show="loading">Ejecutando...</span>
+                    <span x-show="!loading" x-cloak>🛑 PARADA DE EMERGENCIA</span>
+                    <span x-show="loading" x-cloak>Ejecutando...</span>
                 </button>
                 <p class="text-xs text-gray-500 mt-2">Envía señal de parada inmediata al sistema</p>
             </div>
@@ -123,8 +124,8 @@
                     @click="resetSystem()"
                     :disabled="loading"
                     class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-4 px-6 rounded-lg shadow-lg transition-colors duration-200">
-                    <span x-show="!loading">🔄 REINICIAR</span>
-                    <span x-show="loading">Ejecutando...</span>
+                    <span x-show="!loading" x-cloak>🔄 REINICIAR</span>
+                    <span x-show="loading" x-cloak>Ejecutando...</span>
                 </button>
                 <p class="text-xs text-gray-500 mt-2">Reinicia el controlador después de una parada</p>
             </div>
@@ -265,11 +266,12 @@
                             headers: { 'Content-Type': 'application/json' }
                         });
                         const result = await response.json();
-                        
-                        if (result.status === 'success') {
+                        // Considerar 'ok' y 'success' como éxito
+                        if (result.status === 'ok' || result.status === 'success') {
                             this.addEvent('emergency_stop', '🛑 Parada de emergencia activada');
                         } else {
-                            this.addEvent('error', '❌ Error al activar parada de emergencia');
+                            const msg = result.message ? `: ${result.message}` : '';
+                            this.addEvent('error', `❌ Error al activar parada de emergencia${msg}`);
                         }
                     } catch (error) {
                         this.addEvent('error', `❌ Error: ${error.message}`);
@@ -290,11 +292,12 @@
                             headers: { 'Content-Type': 'application/json' }
                         });
                         const result = await response.json();
-                        
-                        if (result.status === 'success') {
+                        // Considerar 'ok' y 'success' como éxito
+                        if (result.status === 'ok' || result.status === 'success') {
                             this.addEvent('reset', '🔄 Sistema reiniciado exitosamente');
                         } else {
-                            this.addEvent('error', '❌ Error al reiniciar sistema');
+                            const msg = result.message ? `: ${result.message}` : '';
+                            this.addEvent('error', `❌ Error al reiniciar sistema${msg}`);
                         }
                     } catch (error) {
                         this.addEvent('error', `❌ Error: ${error.message}`);
