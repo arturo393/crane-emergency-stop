@@ -88,6 +88,15 @@ class BL335Gateway:
                 logger.info(f"Cargando EDS desde: {eds_path}")
                 self.k13_node = self.network.add_node(self.node_id, eds_path)
                 logger.info("✅ EDS cargado correctamente")
+                
+                # Leer configuración de PDO desde el Object Dictionary
+                try:
+                    if hasattr(self.k13_node, 'pdo'):
+                        logger.info("Leyendo configuración de PDO desde EDS...")
+                        self.k13_node.pdo.read()
+                        logger.info("✅ PDO configurados desde EDS")
+                except Exception as pdo_error:
+                    logger.warning(f"No se pudo leer PDO desde EDS: {pdo_error}")
             else:
                 logger.warning(f"⚠️  EDS no encontrado en {eds_path}, usando Object Dictionary vacío")
                 self.k13_node = self.network.add_node(self.node_id, object_dictionary=None)
@@ -154,53 +163,66 @@ class BL335Gateway:
         try:
             logger.info("Configurando mapeos PDO...")
             
+            if not hasattr(self.k13_node, 'pdo'):
+                logger.warning("Nodo no tiene soporte PDO")
+                return
+            
+            # Verificar si los PDOs ya están configurados desde el EDS
+            try:
+                if 1 in self.k13_node.pdo.rx and self.k13_node.pdo.rx[1].cob_id:
+                    logger.info("✅ PDOs ya configurados desde EDS, omitiendo configuración manual")
+                    self.system_state['pdo_active'] = True
+                    return
+            except:
+                pass
+            
+            # Configurar manualmente solo si no están en el EDS
+            logger.info("PDOs no configurados en EDS, configurando manualmente...")
+            
             # Configurar RPDO1 (Receive PDO 1) - Para comandos de control
             # RPDO1 Parameter (0x1400)
-            if hasattr(self.k13_node, 'pdo'):
-                # Configurar COB-ID para RPDO1 (0x200 + node_id)
-                rpdo1_cob_id = 0x200 + self.node_id
-                self.k13_node.pdo.rx[1].cob_id = rpdo1_cob_id
-                self.k13_node.pdo.rx[1].enabled = True
-                
-                # Configurar Transmission Type (255 = asynchronous)
-                self.k13_node.pdo.rx[1].transmission_type = 255
-                
-                # Configurar mapping de RPDO1 (0x1600)
-                # Map Control Word (0x6040:00) - 16 bits
-                self.k13_node.pdo.rx[1].mapping = [
-                    (0x6040, 0, 16),  # Control Word
-                ]
-                logger.info(f"RPDO1 configurado: COB-ID=0x{rpdo1_cob_id:03X}")
+            # Configurar COB-ID para RPDO1 (0x200 + node_id)
+            rpdo1_cob_id = 0x200 + self.node_id
+            self.k13_node.pdo.rx[1].cob_id = rpdo1_cob_id
+            self.k13_node.pdo.rx[1].enabled = True
+            
+            # Configurar Transmission Type (255 = asynchronous)
+            self.k13_node.pdo.rx[1].transmission_type = 255
+            
+            # Configurar mapping de RPDO1 (0x1600)
+            # Map Control Word (0x6040:00) - 16 bits
+            self.k13_node.pdo.rx[1].mapping = [
+                (0x6040, 0, 16),  # Control Word
+            ]
+            logger.info(f"RPDO1 configurado: COB-ID=0x{rpdo1_cob_id:03X}")
             
             # Configurar TPDO1 (Transmit PDO 1) - Para estado del dispositivo
-            if hasattr(self.k13_node, 'pdo'):
-                # Configurar COB-ID para TPDO1 (0x180 + node_id)
-                tpdo1_cob_id = 0x180 + self.node_id
-                self.k13_node.pdo.tx[1].cob_id = tpdo1_cob_id
-                self.k13_node.pdo.tx[1].enabled = True
-                
-                # Configurar Transmission Type (255 = asynchronous)
-                self.k13_node.pdo.tx[1].transmission_type = 255
-                
-                # Configurar mapping de TPDO1 (0x1A00)
-                # Map Status Word (0x6041:00) - 16 bits
-                self.k13_node.pdo.tx[1].mapping = [
-                    (0x6041, 0, 16),  # Status Word
-                ]
-                logger.info(f"TPDO1 configurado: COB-ID=0x{tpdo1_cob_id:03X}")
+            # Configurar COB-ID para TPDO1 (0x180 + node_id)
+            tpdo1_cob_id = 0x180 + self.node_id
+            self.k13_node.pdo.tx[1].cob_id = tpdo1_cob_id
+            self.k13_node.pdo.tx[1].enabled = True
+            
+            # Configurar Transmission Type (255 = asynchronous)
+            self.k13_node.pdo.tx[1].transmission_type = 255
+            
+            # Configurar mapping de TPDO1 (0x1A00)
+            # Map Status Word (0x6041:00) - 16 bits
+            self.k13_node.pdo.tx[1].mapping = [
+                (0x6041, 0, 16),  # Status Word
+            ]
+            logger.info(f"TPDO1 configurado: COB-ID=0x{tpdo1_cob_id:03X}")
             
             # Configurar TPDO2 para datos adicionales (opcional)
-            if hasattr(self.k13_node, 'pdo'):
-                tpdo2_cob_id = 0x280 + self.node_id
-                self.k13_node.pdo.tx[2].cob_id = tpdo2_cob_id
-                self.k13_node.pdo.tx[2].enabled = True
-                self.k13_node.pdo.tx[2].transmission_type = 255
-                
-                # Map Position Actual Value (0x6064:00) - 32 bits
-                self.k13_node.pdo.tx[2].mapping = [
-                    (0x6064, 0, 32),  # Position Actual Value
-                ]
-                logger.info(f"TPDO2 configurado: COB-ID=0x{tpdo2_cob_id:03X}")
+            tpdo2_cob_id = 0x280 + self.node_id
+            self.k13_node.pdo.tx[2].cob_id = tpdo2_cob_id
+            self.k13_node.pdo.tx[2].enabled = True
+            self.k13_node.pdo.tx[2].transmission_type = 255
+            
+            # Map Position Actual Value (0x6064:00) - 32 bits
+            self.k13_node.pdo.tx[2].mapping = [
+                (0x6064, 0, 32),  # Position Actual Value
+            ]
+            logger.info(f"TPDO2 configurado: COB-ID=0x{tpdo2_cob_id:03X}")
             
             self.system_state['pdo_active'] = True
             logger.info("Mapeos PDO configurados correctamente")
