@@ -75,13 +75,34 @@ idf.py -p /dev/ttyUSB0 flash monitor
 
 - [x] Estructura base del proyecto
 - [x] Main loop con FreeRTOS
-- [x] CAN Manager básico (TWAI driver)
-- [x] WiFi Manager estructura
-- [ ] Ethernet Manager
-- [ ] OTA Manager
-- [ ] Protocolo CANopen completo
+- [x] CAN Manager (TWAI) operativo
+- [x] CANopen MVP: RPDO1(Control Word) ➜ CiA402, TPDO1(Status Word), Heartbeat 0x700
+- [x] WiFi Manager (estructura)
+- [x] Ethernet Manager (W5500/LAN8720 completo)
+- [x] OTA Manager (integrado)
+- [x] Config Manager (configuración persistente NVS)
+- [ ] TCP Server para control remoto
 - [ ] Tests unitarios
 - [ ] Documentación completa
+- [ ] Validación con hardware real
+
+### 🔎 Detalles del MVP CANopen
+
+- Node ID: 0x01 (configurable próximamente vía NVS)
+- COB-IDs:
+  - TPDO1: 0x180 + NodeID (0x181)
+  - RPDO1: 0x200 + NodeID (0x201)
+  - Heartbeat: 0x700 + NodeID (0x701)
+- CiA 402 soportado (simplificado): SwitchOnDisabled ↔ ReadyToSwitchOn ↔ SwitchedOn ↔ OperationEnabled con QuickStop/Fault reset
+
+### 🧪 Prueba rápida (en banco)
+
+1) Flashea y abre el monitor:
+  - `idf.py -p /dev/ttyUSB0 flash monitor`
+2) Envía RPDO1 (Control Word) 0x0007 y observa transición a ReadyToSwitchOn:
+  - Frame: ID 0x201, DLC 2, Data: 07 00 00 00 00 00 00 00
+3) Observa TPDO1 (Status Word) en 0x181 actualizándose cada ~50ms.
+4) Heartbeat en 0x701 (byte=0x05) cada 1s.
 
 ## 🐛 Debug
 
