@@ -38,9 +38,11 @@ jobs:
           status['gateway_loads_eds'] = False
           try:
               with open('src/bl335_gateway/main.py', 'r') as f:
-                  if 'danfoss_r13f' in f.read() and 'add_node' in f.read():
+                  content = f.read()
+                  if 'danfoss_r13f' in content and 'add_node' in content:
                       status['gateway_loads_eds'] = True
-          except: pass
+          except:
+              pass
           
           # 3. Verificar objetos CiA 301 en EDS
           status['cia301_objects'] = False

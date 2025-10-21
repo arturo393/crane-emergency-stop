@@ -1,0 +1,34 @@
+name: ESP32 Bug Report
+description: Reportar un bug en el firmware ESP32
+title: "[ESP32 BUG] "
+labels: ["bug", "esp32"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Reporta un problema con el firmware ESP32
+  - type: dropdown
+    id: component
+    attributes:
+      label: Componente
+      options:
+        - CANopen
+        - WiFi Manager
+        - Ethernet Manager
+        - OTA Manager
+        - Main/Core
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción
+      description: Describe el bug
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducir
+    validations:
+      required: true

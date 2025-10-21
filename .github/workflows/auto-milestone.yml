@@ -1,0 +1,75 @@
+name: Auto Milestone Assignment
+
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  assign-milestone:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign milestone based on labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const labels = issue.labels.map(l => l.name);
+            
+            // Skip if already has milestone
+            if (issue.milestone) {
+              console.log('Issue already has milestone, skipping');
+              return;
+            }
+            
+            let milestoneTitle = null;
+            
+            // Determine milestone from labels
+            if (labels.includes('esp32-gateway')) {
+              milestoneTitle = 'ESP32 Gateway MVP';
+            } else if (labels.includes('canopen')) {
+              milestoneTitle = 'CANopen Integration';
+            } else if (labels.includes('web-ui')) {
+              milestoneTitle = 'Web UI Development';
+            } else if (labels.includes('testing')) {
+              milestoneTitle = 'Testing Infrastructure';
+            } else if (labels.includes('priority:high')) {
+              milestoneTitle = 'High Priority Tasks';
+            }
+            
+            if (!milestoneTitle) {
+              console.log('No matching milestone for labels:', labels);
+              return;
+            }
+            
+            // Get or create milestone
+            const milestones = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            
+            let milestone = milestones.data.find(m => m.title === milestoneTitle);
+            
+            if (!milestone) {
+              console.log(`Creating new milestone: ${milestoneTitle}`);
+              const created = await github.rest.issues.createMilestone({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: milestoneTitle
+              });
+              milestone = created.data;
+            }
+            
+            // Assign milestone
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              milestone: milestone.number
+            });
+            
+            console.log(`Assigned issue #${issue.number} to milestone: ${milestoneTitle}`);

@@ -1,0 +1,22 @@
+name: ESP32 Feature
+description: Nueva funcionalidad para ESP32
+title: "[ESP32 FEAT] "
+labels: ["enhancement", "esp32"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción
+      description: Describe la funcionalidad
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Prioridad
+      options:
+        - Alta
+        - Media
+        - Baja
+    validations:
+      required: true

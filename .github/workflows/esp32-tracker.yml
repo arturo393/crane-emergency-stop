@@ -1,0 +1,76 @@
+name: ESP32 Progress Tracker
+
+on:
+  push:
+    branches: [main, clean-main]
+    paths:
+      - 'esp32_gateway/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  track-progress:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Find or create tracking issue
+        id: issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'esp32-gateway',
+              state: 'open'
+            });
+            
+            if (issues.data.length > 0) {
+              return issues.data[0].number;
+            }
+            
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔧 ESP32 Gateway Development',
+              labels: ['esp32-gateway', 'enhancement'],
+              body: 'Tracking ESP32-S3 firmware development progress.'
+            });
+            return issue.data.number;
+
+      - name: Check components
+        id: check
+        run: |
+          CAN="⬜"; [ -f "esp32_gateway/components/canopen/can_manager.cpp" ] && CAN="✅"
+          CIA="⬜"; [ -f "esp32_gateway/components/canopen/cia402.cpp" ] && CIA="✅"
+          PDO="⬜"; [ -f "esp32_gateway/components/canopen/pdo.h" ] && PDO="✅"
+          
+          echo "can=$CAN" >> $GITHUB_OUTPUT
+          echo "cia=$CIA" >> $GITHUB_OUTPUT
+          echo "pdo=$PDO" >> $GITHUB_OUTPUT
+
+      - name: Update issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `# ESP32 Gateway Progress
+
+| Component | Status |
+|-----------|--------|
+| CAN Manager | ${{ steps.check.outputs.can }} |
+| CiA 402 | ${{ steps.check.outputs.cia }} |
+| PDO | ${{ steps.check.outputs.pdo }} |
+
+Updated: ${new Date().toISOString()}`;
+
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.issue.outputs.result }},
+              body: body
+            });

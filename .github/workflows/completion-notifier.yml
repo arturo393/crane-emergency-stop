@@ -1,0 +1,83 @@
+name: Component Completion Notifier
+
+on:
+  push:
+    branches: [main, clean-main]
+    paths:
+      - 'esp32_gateway/**'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  notify-completion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect completed components
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            
+            // Get changed files
+            const diff = execSync('git diff HEAD~1 HEAD -- esp32_gateway/README.md').toString();
+            
+            // Detect checkbox changes from [ ] to [x]
+            const completionPattern = /^-\s*-\s*\[\s\]\s*(.+)$/gm;
+            const newCompletionPattern = /^\+\s*-\s*\[x\]\s*(.+)$/gm;
+            
+            const removedUnchecked = [...diff.matchAll(completionPattern)].map(m => m[1]);
+            const addedChecked = [...diff.matchAll(newCompletionPattern)].map(m => m[1]);
+            
+            const completedComponents = removedUnchecked.filter(comp => 
+              addedChecked.some(checked => checked.includes(comp) || comp.includes(checked))
+            );
+            
+            if (completedComponents.length === 0) {
+              console.log('No completed components detected');
+              return;
+            }
+            
+            console.log('Completed components:', completedComponents);
+            
+            // Find tracking issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'tracking',
+              state: 'open'
+            });
+            
+            if (issues.data.length === 0) {
+              console.log('No tracking issue found');
+              return;
+            }
+            
+            const trackingIssue = issues.data[0];
+            
+            // Post celebration comment
+            const componentList = completedComponents.map(c => `- ✅ ${c}`).join('\n');
+            const message = [
+              '## 🎉 Component Completion Alert!',
+              '',
+              'The following components were just marked as complete:',
+              componentList,
+              '',
+              `Commit: ${context.sha.substring(0, 7)}`,
+              `Author: @${context.actor}`,
+              '',
+              '**Next steps:** Update related issues and verify integration tests.'
+            ].join('\n');
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: trackingIssue.number,
+              body: message
+            });

@@ -1,0 +1,51 @@
+name: Project Auto-Labeler
+
+on:
+  issues:
+    types: [opened, edited]
+  pull_request:
+    types: [opened, edited, synchronize]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-label based on title/body
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const item = context.payload.issue || context.payload.pull_request;
+            const title = item.title.toLowerCase();
+            const body = (item.body || '').toLowerCase();
+            const text = title + ' ' + body;
+            
+            const labels = [];
+            
+            // Component labels
+            if (text.includes('esp32') || text.includes('gateway')) labels.push('esp32-gateway');
+            if (text.includes('canopen') || text.includes('cia 402')) labels.push('canopen');
+            if (text.includes('test') || text.includes('e2e')) labels.push('testing');
+            if (text.includes('doc')) labels.push('documentation');
+            if (text.includes('web') || text.includes('ui')) labels.push('web-ui');
+            
+            // Type labels
+            if (text.includes('bug') || text.includes('error') || text.includes('fix')) labels.push('bug');
+            if (text.includes('feature') || text.includes('enhancement')) labels.push('enhancement');
+            
+            // Priority labels
+            if (text.includes('urgent') || text.includes('critical')) labels.push('priority:high');
+            
+            if (labels.length > 0) {
+              const params = context.issue || context.payload.pull_request;
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: params.number,
+                labels: labels
+              });
+            }

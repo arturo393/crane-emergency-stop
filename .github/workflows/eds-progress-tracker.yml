@@ -82,14 +82,14 @@ jobs:
         continue-on-error: true
         run: |
           # Crear virtual CAN para tests
-          sudo modprobe vcan || echo "vcan module not available, using virtual interface"
+          sudo modprobe vcan || echo "⚠️  vcan module not available, tests will use virtual interface"
           
           # Ejecutar tests
           pytest tests/e2e/test_integrated_system.py -v --tb=short > test_results.txt 2>&1 || true
           
-          # Analizar resultados
-          PASSED=$(grep -oP '\d+(?= passed)' test_results.txt | head -1 || echo "0")
-          FAILED=$(grep -oP '\d+(?= failed)' test_results.txt | head -1 || echo "0")
+          # Analizar resultados (sin grep -P, compatible con macOS)
+          PASSED=$(grep -o '[0-9]* passed' test_results.txt | grep -o '[0-9]*' | head -1 || echo "0")
+          FAILED=$(grep -o '[0-9]* failed' test_results.txt | grep -o '[0-9]*' | head -1 || echo "0")
           TOTAL=$((PASSED + FAILED))
           
           echo "tests_passed=$PASSED" >> $GITHUB_OUTPUT
@@ -208,20 +208,42 @@ jobs:
               progressChecklist = '### 📋 Checklist not available';
             }
             
-            // Buscar issue con label "EDS"
-            const issues = await github.rest.issues.listForRepo({
+            // Buscar issue con label "eds-implementation" (primario) o fallback por título
+            let edsIssue = null;
+            
+            // Intentar primero con label específico
+            const issuesWithLabel = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              labels: 'enhancement,documentation',
+              labels: 'eds-implementation',
               state: 'open'
             });
             
-            const edsIssue = issues.data.find(issue => 
-              issue.title.includes('EDS') || issue.title.includes('R13 F')
-            );
+            if (issuesWithLabel.data.length > 0) {
+              edsIssue = issuesWithLabel.data[0];
+              console.log(`✅ Found EDS issue by label: #${edsIssue.number}`);
+            } else {
+              // Fallback: buscar por título
+              console.log('⚠️  No issue found with label "eds-implementation", searching by title...');
+              const allIssues = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open'
+              });
+              
+              edsIssue = allIssues.data.find(issue => 
+                issue.title.toLowerCase().includes('eds') || 
+                issue.title.toLowerCase().includes('r13 f') ||
+                issue.title.toLowerCase().includes('danfoss')
+              );
+              
+              if (edsIssue) {
+                console.log(`⚠️  Found EDS issue by title: #${edsIssue.number} - Consider adding "eds-implementation" label`);
+              }
+            }
             
             if (!edsIssue) {
-              console.log('No EDS issue found');
+              console.log('❌ No EDS issue found. Please create one with label "eds-implementation" or title containing "EDS"');
               return;
             }
             
