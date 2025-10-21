@@ -9,9 +9,11 @@
 #include "wifi_manager.h"
 #include "can_manager.h"
 #include "ethernet_manager.h"
+#include "config_manager.h"
 #include "../components/ota/ota_manager.h"
 #include "../components/canopen/cia402.h"
 #include "../components/canopen/pdo.h"
+#include "../components/tcp_server/tcp_server_manager.h"
 
 static const char *TAG = "ESP32_GATEWAY";
 
@@ -20,8 +22,42 @@ static WiFiManager* wifi_manager = nullptr;
 static EthernetManager* ethernet_manager = nullptr;
 static OTAManager* ota_manager = nullptr;
 static CANManager* can_manager = nullptr;
+static TCPServerManager* tcp_server = nullptr;
+static ConfigManager* config_manager = nullptr;
 static Cia402Controller cia402;
 static uint8_t node_id = 0x01; // configurable más adelante vía NVS
+
+/**
+ * @brief Callback para procesar comandos TCP
+ */
+static esp_err_t command_callback(const TCPServerManager::Command& cmd, std::string& response) {
+    ESP_LOGI(TAG, "Procesando comando TCP: tipo=%d", cmd.type);
+    
+    // Respuesta simple en JSON
+    response = "{\"status\":\"ok\",\"message\":\"Command processed\"}";
+    
+    switch (cmd.type) {
+        case TCPServerManager::CMD_EMERGENCY_STOP:
+            ESP_LOGW(TAG, "⚠️  PARADA DE EMERGENCIA");
+            // TODO: Enviar comando QuickStop via CAN
+            break;
+            
+        case TCPServerManager::CMD_GET_STATUS:
+            ESP_LOGI(TAG, "Solicitud de estado");
+            response = "{\"status\":\"ok\",\"can_connected\":true,\"state\":\"operational\"}";
+            break;
+            
+        case TCPServerManager::CMD_SYSTEM_INFO:
+            response = "{\"status\":\"ok\",\"version\":\"1.0.0\",\"node_id\":1}";
+            break;
+            
+        default:
+            ESP_LOGW(TAG, "Comando no implementado: %d", cmd.type);
+            break;
+    }
+    
+    return ESP_OK;
+}
 
 
 
@@ -49,7 +85,19 @@ extern "C" void app_main(void)
     
     ESP_LOGI(TAG, "NVS inicializado correctamente");
     
-    // TODO: Cargar configuración desde NVS (NodeID, pines, credenciales, etc.)
+    // Inicializar Config Manager
+    ESP_LOGI(TAG, "Inicializando Config Manager...");
+    config_manager = new ConfigManager();
+    config_manager->init();
+    
+    // Cargar configuración CAN desde NVS
+    ConfigManager::CANConfig can_config;
+    if (config_manager->load_can_config(&can_config) == ESP_OK) {
+        node_id = can_config.node_id;
+        ESP_LOGI(TAG, "✅ Configuración CAN cargada desde NVS");
+    } else {
+        ESP_LOGI(TAG, "⚠️  Usando configuración CAN por defecto");
+    }
     
     // Inicializar WiFi Manager (opcional - comentado por defecto)
     // ESP_LOGI(TAG, "Inicializando WiFi Manager...");
@@ -105,6 +153,15 @@ extern "C" void app_main(void)
         ESP_LOGI(TAG, "✅ OTA Manager inicializado");
         ESP_LOGI(TAG, "Para OTA: Usar HTTP POST a /ota con URL del firmware");
     }
+    
+    // Inicializar TCP Server (opcional - descomentar si se usa red)
+    // ESP_LOGI(TAG, "Inicializando TCP Server...");
+    // tcp_server = new TCPServerManager();
+    // tcp_server->init(8888);
+    // tcp_server->register_command_callback(command_callback);
+    // if (tcp_server->start() == ESP_OK) {
+    //     ESP_LOGI(TAG, "✅ TCP Server inicializado en puerto 8888");
+    // }
     
     ESP_LOGI(TAG, "========================================");
     ESP_LOGI(TAG, "Sistema inicializado - Loop principal");

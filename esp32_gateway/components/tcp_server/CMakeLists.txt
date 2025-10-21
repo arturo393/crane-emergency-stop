@@ -1,0 +1,9 @@
+idf_component_register(
+    SRCS
+        "tcp_server_manager.cpp"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        lwip
+        json
+)

@@ -81,9 +81,9 @@ idf.py -p /dev/ttyUSB0 flash monitor
 - [x] Ethernet Manager (W5500/LAN8720 completo)
 - [x] OTA Manager (integrado)
 - [x] Config Manager (configuración persistente NVS)
-- [ ] TCP Server para control remoto
+- [x] TCP Server para control remoto (implementado, listo para usar)
 - [ ] Tests unitarios
-- [ ] Documentación completa
+- [ ] Documentación API completa
 - [ ] Validación con hardware real
 
 ### 🔎 Detalles del MVP CANopen
