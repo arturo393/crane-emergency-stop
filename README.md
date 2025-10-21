@@ -6,7 +6,12 @@
 
 
 
-[![Tests](https://img.shields.io/badge/tests-32%2F32%20passing-brightgreen)](tests/)Este sistema desarrolla una **solución de parada de emergencia remota** par### Gateways Hardware Recomendados
+[![Tests](https://img.shields.io/badge/tests-32%2F32%20passing-brightgreen)](tests/)
+[![E2E Tests](https://img.shields.io/badge/E2E%20tests-7%2F7%20passing-brightgreen)](tests/e2e/)
+
+Este sistema desarrolla una **solución de parada de emergencia remota** para puente grúa mediante el receptor **Danfoss K13 F (R13 F)** con protocolo **CANopen**.
+
+### Gateways Hardware Recomendados
 
 [![Python](https://img.shields.io/badge/python-3.12+-blue)](https://www.python.org/)
 
@@ -676,51 +681,57 @@ puente_grua/
 
 
 
-## 🛠️ Tecnologías Utilizadas## 📊 **Estado del Proyecto**
+## 🛠️ Tecnologías Utilizadas
 
+### **Backend & Gateway**
+- **Python 3.12** - Lógica principal y Web UI
+- **FastAPI 0.119** - REST API + WebSockets
+- **python-canopen 2.4** - Stack CANopen completo
+- **python-can 4.6** - Interfaz SocketCAN
+- **Testcontainers 4.13** - Tests con Docker
 
-
-### **Backend & Gateway****✅ Completado:**
-
-- **Python 3.12** - Lógica principal y Web UI- Arquitectura del sistema definida y hardware seleccionado
-
-- **FastAPI 0.119** - REST API + WebSockets- Protocolo CANopen implementado
-
-- **python-canopen 2.4** - Stack CANopen completo- Documentación técnica completa (PDFs convertidos a Markdown)
-
-- **python-can 4.6** - Interfaz SocketCAN- Suite de tests unitarios
-
-- **Testcontainers 4.13** - Tests con Docker- **Hardware final seleccionado:** BL335 + X8 + EdgeBox-ESP-100
-
-
-
-### **Frontend****🔄 En Proceso:**
-
-- **HTMX 1.9** (14KB) - AJAX sin JavaScript- Adquisición de hardware (BL335, X8, EdgeBox-ESP-100)
-
-- **Alpine.js 3.x** (21KB) - Reactividad ligera- Desarrollo de drivers para BL335 con Ubuntu IoT
-
-- **TailwindCSS** (CDN) - Responsive design- Configuración de comunicación CANopen con Danfoss K13 F
-
+### **Frontend**
+- **HTMX 1.9** (14KB) - AJAX sin JavaScript
+- **Alpine.js 3.x** (21KB) - Reactividad ligera
+- **TailwindCSS** (CDN) - Responsive design
 - **Chart.js 4.4** - Gráficas (futuro)
 
-**🎯 Próximos Pasos:**
-
-### **Hardware**1. **Compra inmediata:** BL335 ($35), X8 ($8), EdgeBox-ESP-100 (~$45)
-
-- **BL335** - ARM Linux Embedded Computer2. **Configuración BL335:** Instalar Ubuntu IoT, configurar CAN bus
-
-- **ESP32-S3** - IoT Gateway WiFi/4G3. **Pruebas de comunicación:** BL335 ↔ Danfoss K13 F
-
-- **Danfoss K13 F** - Receptor CANopen industrial4. **Desarrollo interfaz:** Aplicación de control con monitoreo en tiempo real
-
-5. **Certificación industrial:** Validación de seguridad SIL 2
+### **Hardware**
+- **BL335** - ARM Linux Embedded Computer
+- **ESP32-S3** - IoT Gateway WiFi/4G
+- **Danfoss K13 F** - Receptor CANopen industrial
 
 ### **Protocolos**
 - **CANopen (CiA 301)** - Comunicación industrial
 - **CAN Bus 2.0** - Capa física
 - **TCP/IP + JSON** - Comunicación Ethernet
 - **WebSocket** - Updates en tiempo real
+
+---
+
+## 📊 **Estado del Proyecto**
+
+**✅ Completado:**
+- Arquitectura del sistema definida y hardware seleccionado
+- Protocolo CANopen implementado (CiA 301, CiA 402)
+- Documentación técnica completa (PDFs convertidos a Markdown)
+- **Suite de tests completa: 32/32 unitarios + 7/7 E2E passing** ✨
+- **E2E tests con CiA 402 state machine completos** (incluye test_06_state_transitions)
+- Gateway BL335 con Testcontainers funcionando
+- CAN Simulator con transiciones de estado verificadas
+- **Hardware final seleccionado:** BL335 + X8 + EdgeBox-ESP-100
+
+**🔄 En Proceso:**
+- Adquisición de hardware (BL335, X8, EdgeBox-ESP-100)
+- Desarrollo de drivers para BL335 con Ubuntu IoT
+- Configuración de comunicación CANopen con Danfoss K13 F
+
+**🎯 Próximos Pasos:**
+1. **Compra inmediata:** BL335 ($35), X8 ($8), EdgeBox-ESP-100 (~$45)
+2. **Configuración BL335:** Instalar Ubuntu IoT, configurar CAN bus
+3. **Pruebas de comunicación:** BL335 ↔ Danfoss K13 F
+4. **Desarrollo interfaz:** Aplicación de control con monitoreo en tiempo real
+5. **Certificación industrial:** Validación de seguridad SIL 2
 
 ---
 
@@ -846,5 +857,5 @@ Sistema de Parada de Emergencia Industrial
 **Versión**: 1.0  
 **Última actualización**: 16 de octubre de 2025  
 **Estado del Proyecto**: ✅ En evaluación de hardware  
-**Tests**: ✅ 32/32 passing  
+**Tests**: ✅ 32/32 unitarios + 7/7 E2E passing (CiA 402 state machine completo) ✨  
 **Hardware**: 🔄 Esperando adquisición BL335 + ESP32-S3

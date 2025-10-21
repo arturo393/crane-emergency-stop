@@ -71,20 +71,24 @@ idf.py -p /dev/ttyUSB0 flash monitor
 - [CANopen Protocol](https://www.can-cia.org/canopen/)
 - [Danfoss K13 F Datasheet](../docs/RECEPTOR%20K13%20F.md)
 
-## 📊 Estado del Proyecto
+## 📊 Estado del Proyecto - VERSIÓN SIMPLIFICADA
 
-- [x] Estructura base del proyecto
-- [x] Main loop con FreeRTOS
+### ✅ Core Funcional (Activo)
 - [x] CAN Manager (TWAI) operativo
-- [x] CANopen MVP: RPDO1(Control Word) ➜ CiA402, TPDO1(Status Word), Heartbeat 0x700
-- [x] WiFi Manager (estructura)
-- [x] Ethernet Manager (W5500/LAN8720 completo)
-- [x] OTA Manager (integrado)
-- [x] Config Manager (configuración persistente NVS)
-- [x] TCP Server para control remoto (implementado, listo para usar)
-- [ ] Tests unitarios
-- [ ] Documentación API completa
-- [ ] Validación con hardware real
+- [x] CANopen MVP: RPDO1 + TPDO1 + Heartbeat
+- [x] CiA 402 State Machine
+- [x] Main loop limpio y simple
+- [x] **LISTO PARA COMPILAR Y PROBAR**
+
+### 🔄 Componentes Avanzados (Desactivados por ahora)
+- [ ] WiFi Manager (no necesario para MVP)
+- [ ] Ethernet Manager (no necesario para MVP)
+- [ ] OTA Manager (cuando funcione lo básico)
+- [ ] Config Manager (hardcoded por ahora)
+- [ ] TCP Server (cuando funcione lo básico)
+
+### 🎯 Próximo Paso
+**COMPILAR Y PROBAR** con hardware real o simulador
 
 ### 🔎 Detalles del MVP CANopen
 

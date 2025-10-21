@@ -89,14 +89,45 @@ class BL335Gateway:
                 self.k13_node = self.network.add_node(self.node_id, eds_path)
                 logger.info("✅ EDS cargado correctamente")
                 
-                # Leer configuración de PDO desde el Object Dictionary
+                # Configurar PDO directamente desde el EDS sin intentar leer del dispositivo
+                # (el simulador puede no tener todos los objetos SDO implementados)
                 try:
                     if hasattr(self.k13_node, 'pdo'):
-                        logger.info("Leyendo configuración de PDO desde EDS...")
-                        self.k13_node.pdo.read()
-                        logger.info("✅ PDO configurados desde EDS")
+                        logger.info("Configurando PDO desde EDS (sin leer del dispositivo)...")
+                        
+                        # Asignar COB-IDs directamente sin intentar leer del dispositivo
+                        if 1 in self.k13_node.pdo.tx or hasattr(self.k13_node.pdo, 'tx'):
+                            if 1 not in self.k13_node.pdo.tx:
+                                # Crear el PDO si no existe
+                                self.k13_node.pdo.tx[1] = type('obj', (object,), {
+                                    'cob_id': None,
+                                    'enabled': False,
+                                    'transmission_type': 255,
+                                    'mapping': [],
+                                    'data': bytes()
+                                })()
+                            
+                            self.k13_node.pdo.tx[1].cob_id = 0x180 + self.node_id
+                            self.k13_node.pdo.tx[1].enabled = True
+                            logger.info(f"✅ TPDO1 COB-ID asignado: 0x{0x180 + self.node_id:03X}")
+                        
+                        if 1 in self.k13_node.pdo.rx or hasattr(self.k13_node.pdo, 'rx'):
+                            if 1 not in self.k13_node.pdo.rx:
+                                # Crear el PDO si no existe
+                                self.k13_node.pdo.rx[1] = type('obj', (object,), {
+                                    'cob_id': None,
+                                    'enabled': False,
+                                    'transmission_type': 255,
+                                    'mapping': []
+                                })()
+                            
+                            self.k13_node.pdo.rx[1].cob_id = 0x200 + self.node_id
+                            self.k13_node.pdo.rx[1].enabled = True
+                            logger.info(f"✅ RPDO1 COB-ID asignado: 0x{0x200 + self.node_id:03X}")
+                        
+                        logger.info("✅ PDO configurados desde EDS (sin comunicación con dispositivo)")
                 except Exception as pdo_error:
-                    logger.warning(f"No se pudo leer PDO desde EDS: {pdo_error}")
+                    logger.warning(f"Error configurando PDO desde EDS: {pdo_error}")
             else:
                 logger.warning(f"⚠️  EDS no encontrado en {eds_path}, usando Object Dictionary vacío")
                 self.k13_node = self.network.add_node(self.node_id, object_dictionary=None)
@@ -122,21 +153,21 @@ class BL335Gateway:
         """Configurar NMT (Network Management) y PDO (Process Data Objects)"""
         try:
             logger.info("Configurando NMT y PDO...")
-            
-            # Configurar NMT State Machine
+
+            # Configurar NMT State Machine (flujo completo)
             if hasattr(self.k13_node, 'nmt'):
                 # Reset Communication
                 self.k13_node.nmt.state = 'RESET COMMUNICATION'
                 time.sleep(0.1)
-                
+
                 # Reset Application
                 self.k13_node.nmt.state = 'RESET APPLICATION'
                 time.sleep(0.1)
-                
+
                 # Ir a PRE-OPERATIONAL
                 self.k13_node.nmt.state = 'PRE-OPERATIONAL'
                 time.sleep(0.1)
-                
+
                 # Finalmente OPERATIONAL
                 self.k13_node.nmt.state = 'OPERATIONAL'
                 self.system_state['operational'] = True
@@ -145,12 +176,6 @@ class BL335Gateway:
             
             # Configurar PDO completo
             self._configure_pdo_mappings()
-            
-            # Configurar heartbeat producer/consumer
-            self._configure_heartbeat()
-            
-            # Configurar SYNC producer si es necesario
-            # self._configure_sync()
             
             logger.info("NMT y PDO configurados correctamente")
             
@@ -171,6 +196,13 @@ class BL335Gateway:
             try:
                 if 1 in self.k13_node.pdo.rx and self.k13_node.pdo.rx[1].cob_id:
                     logger.info("✅ PDOs ya configurados desde EDS, omitiendo configuración manual")
+                    # Asegurar que COB-IDs estén correctamente asignados incluso si vienen del EDS
+                    if 1 in self.k13_node.pdo.tx and self.k13_node.pdo.tx[1].cob_id is None:
+                        self.k13_node.pdo.tx[1].cob_id = 0x180 + self.node_id
+                        logger.info(f"✅ TPDO1 COB-ID re-asignado: 0x{0x180 + self.node_id:03X}")
+                    if 1 in self.k13_node.pdo.rx and self.k13_node.pdo.rx[1].cob_id is None:
+                        self.k13_node.pdo.rx[1].cob_id = 0x200 + self.node_id
+                        logger.info(f"✅ RPDO1 COB-ID re-asignado: 0x{0x200 + self.node_id:03X}")
                     self.system_state['pdo_active'] = True
                     return
             except:
@@ -706,6 +738,15 @@ class BL335Gateway:
                 cob_id = self.k13_node.pdo.rx[pdo_number].cob_id
                 cob_id_str = f"0x{cob_id:03X}" if cob_id is not None else "None"
                 logger.info(f"PDO Write RPDO{pdo_number}: COB-ID={cob_id_str}, Data={data.hex()}")
+
+                # Enviar explícitamente por el bus CAN para asegurar entrega al simulador
+                try:
+                    if cob_id is not None and hasattr(self.network, 'bus') and self.network.bus is not None:
+                        msg = can.Message(arbitration_id=cob_id, data=data, is_extended_id=False)
+                        self.network.bus.send(msg)
+                        logger.info(f"PDO RAW Enforced RPDO{pdo_number}: COB-ID=0x{cob_id:03X}, Data={data.hex()}")
+                except Exception as send_err:
+                    logger.warning(f"Fallo envío RAW RPDO{pdo_number} (se continúa): {send_err}")
                 return {
                     'status': 'ok',
                     'pdo_number': pdo_number,

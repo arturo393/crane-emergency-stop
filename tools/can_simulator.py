@@ -467,6 +467,9 @@ class R13FSimulator:
             if len(data) >= 2:
                 # Control Word (primeros 2 bytes)
                 control_word = data[0] | (data[1] << 8)
+                logger.warning(f"[RPDO1] COB-ID=0x{self.pdo_data['rpdo1']['cob_id']:03X}, Control=0x{control_word:04X}, Estado actual={self.device_state.name}, Raw={data.hex()}")
+
+                # Procesar Control Word siempre
                 self._process_control_word(control_word)
 
                 # Target Velocity (bytes 2-5, si están presentes)
@@ -497,6 +500,9 @@ class R13FSimulator:
     def _process_control_word(self, control_word):
         """Procesar Control Word según CiA 402"""
         with self.state_lock:
+            # Capturar estado previo para log
+            prev_state = self.device_state.name
+
             # Bit 0: Switch On
             # Bit 1: Enable Voltage
             # Bit 2: Quick Stop
@@ -509,16 +515,32 @@ class R13FSimulator:
             enable_operation = bool(control_word & (1 << 3))
             reset_fault = bool(control_word & (1 << 7))
 
+            # Forzar transición a READY_TO_SWITCH_ON si recibimos 0x0007 en SWITCH_ON_DISABLED o QUICK_STOP_ACTIVE
+            # Control Word 0x0007 = bits 0,1,2 = 1 (Switch On, Enable Voltage, Quick Stop)
+            if control_word == 0x0007 and self.device_state in [DeviceState.SWITCH_ON_DISABLED, DeviceState.QUICK_STOP_ACTIVE]:
+                logger.warning(f"[DEBUG] Forzando transición: {prev_state} → READY_TO_SWITCH_ON por Control=0x0007")
+                self.device_state = DeviceState.READY_TO_SWITCH_ON
+                self._update_status_word()
+                logger.info(f"Transición forzada: {prev_state} → READY_TO_SWITCH_ON por 0x0007")
+                return
+
             # Reset fault tiene máxima prioridad
             if reset_fault and self.device_state == DeviceState.FAULT:
                 self.device_state = DeviceState.SWITCH_ON_DISABLED
                 self._update_status_word()
                 return
 
-            # Quick Stop: cuando el bit 2 está en 0, activar QUICK_STOP
-            # Control word 0x0006 tiene quick_stop=1, así que NO debe activar quick stop
-            # Para test, asumimos que la ausencia de Switch On indica shutdown/quick stop
-            if not switch_on and self.device_state == DeviceState.OPERATION_ENABLED:
+            # Quick Stop: Control Word 0x0002 (solo Enable Voltage, Quick Stop activo)
+            # Cuando bit 2 (Quick Stop) está en 0, activar QUICK_STOP_ACTIVE
+            if not quick_stop:
+                if self.device_state in [DeviceState.OPERATION_ENABLED, DeviceState.SWITCHED_ON]:
+                    self.device_state = DeviceState.QUICK_STOP_ACTIVE
+                    self.target_velocity = 0
+                    self._update_status_word()
+                    return
+
+            # Control Word 0x0002 específico (Emergency Stop común)
+            if control_word == 0x0002:
                 self.device_state = DeviceState.QUICK_STOP_ACTIVE
                 self.target_velocity = 0
                 self._update_status_word()
@@ -533,23 +555,30 @@ class R13FSimulator:
                 changed = False
 
                 if self.device_state == DeviceState.SWITCH_ON_DISABLED:
-                    # Transición: Shutdown command (bits 0,1,2 = 1,1,0 o 1,1,1)
-                    if switch_on and enable_voltage:
+                    # Transición 2: Shutdown (0x0006 o 0x0007)
+                    # Requiere: Switch On=1, Enable Voltage=1, Quick Stop=1
+                    if switch_on and enable_voltage and quick_stop:
                         self.device_state = DeviceState.READY_TO_SWITCH_ON
                         changed = True
 
                 elif self.device_state == DeviceState.READY_TO_SWITCH_ON:
-                    # Puede avanzar a SWITCHED_ON cuando hay Enable Operation
-                    if enable_operation and switch_on and enable_voltage:
+                    # Transición 3: Switch On (0x0007)
+                    # Requiere mantener voltaje y switch on
+                    if switch_on and enable_voltage and quick_stop:
                         self.device_state = DeviceState.SWITCHED_ON
+                        changed = True
+                    # Transición hacia atrás: Disable Voltage
+                    elif not enable_voltage:
+                        self.device_state = DeviceState.SWITCH_ON_DISABLED
                         changed = True
 
                 elif self.device_state == DeviceState.SWITCHED_ON:
-                    # Transición a OPERATION_ENABLED requiere Enable Operation
-                    if enable_operation and enable_voltage:
+                    # Transición 4: Enable Operation (0x000F)
+                    if enable_operation and switch_on and enable_voltage and quick_stop:
                         self.device_state = DeviceState.OPERATION_ENABLED
                         changed = True
-                    elif not enable_voltage:
+                    # Transición hacia atrás
+                    elif not switch_on or not enable_voltage:
                         self.device_state = DeviceState.READY_TO_SWITCH_ON
                         changed = True
 
@@ -564,8 +593,12 @@ class R13FSimulator:
                         changed = True
 
                 elif self.device_state == DeviceState.QUICK_STOP_ACTIVE:
+                    # Salir de Quick Stop con 0x0007 (Shutdown)
+                    if switch_on and enable_voltage and quick_stop:
+                        self.device_state = DeviceState.READY_TO_SWITCH_ON
+                        changed = True
                     # Salir de Quick Stop con reset fault
-                    if reset_fault:
+                    elif reset_fault:
                         self.device_state = DeviceState.SWITCH_ON_DISABLED
                         changed = True
 

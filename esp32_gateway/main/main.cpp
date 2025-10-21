@@ -5,198 +5,114 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 
-// Incluir managers implementados
-#include "wifi_manager.h"
+// Solo lo esencial: CAN Manager y CiA 402
 #include "can_manager.h"
-#include "ethernet_manager.h"
-#include "config_manager.h"
-#include "../components/ota/ota_manager.h"
 #include "../components/canopen/cia402.h"
 #include "../components/canopen/pdo.h"
-#include "../components/tcp_server/tcp_server_manager.h"
 
-static const char *TAG = "ESP32_GATEWAY";
+static const char *TAG = "K13_GATEWAY";
 
-// Instancias globales de managers
-static WiFiManager* wifi_manager = nullptr;
-static EthernetManager* ethernet_manager = nullptr;
-static OTAManager* ota_manager = nullptr;
+// Variables globales simples
 static CANManager* can_manager = nullptr;
-static TCPServerManager* tcp_server = nullptr;
-static ConfigManager* config_manager = nullptr;
 static Cia402Controller cia402;
-static uint8_t node_id = 0x01; // configurable más adelante vía NVS
-
-/**
- * @brief Callback para procesar comandos TCP
- */
-static esp_err_t command_callback(const TCPServerManager::Command& cmd, std::string& response) {
-    ESP_LOGI(TAG, "Procesando comando TCP: tipo=%d", cmd.type);
-    
-    // Respuesta simple en JSON
-    response = "{\"status\":\"ok\",\"message\":\"Command processed\"}";
-    
-    switch (cmd.type) {
-        case TCPServerManager::CMD_EMERGENCY_STOP:
-            ESP_LOGW(TAG, "⚠️  PARADA DE EMERGENCIA");
-            // TODO: Enviar comando QuickStop via CAN
-            break;
-            
-        case TCPServerManager::CMD_GET_STATUS:
-            ESP_LOGI(TAG, "Solicitud de estado");
-            response = "{\"status\":\"ok\",\"can_connected\":true,\"state\":\"operational\"}";
-            break;
-            
-        case TCPServerManager::CMD_SYSTEM_INFO:
-            response = "{\"status\":\"ok\",\"version\":\"1.0.0\",\"node_id\":1}";
-            break;
-            
-        default:
-            ESP_LOGW(TAG, "Comando no implementado: %d", cmd.type);
-            break;
-    }
-    
-    return ESP_OK;
-}
+static const uint8_t NODE_ID = 0x01;  // NodeID fijo por ahora
 
 
 
 /**
- * @brief Función principal del gateway ESP32
+ * @brief Gateway ESP32 para control K13 via CANopen
  * 
- * Inicializa todos los módulos del sistema:
- * - Ethernet Manager
- * - CAN Manager
- * - OTA Manager
+ * SIMPLE Y DIRECTO:
+ * 1. Inicializar CAN bus
+ * 2. Enviar heartbeat cada 1s
+ * 3. Enviar Status Word cada 50ms
+ * 4. Recibir Control Word y cambiar estado
  */
 extern "C" void app_main(void)
 {
-    ESP_LOGI(TAG, "=== ESP32 Gateway para Danfoss R13 F ===");
-    ESP_LOGI(TAG, "Versión: 1.0.0");
-    ESP_LOGI(TAG, "Compilado: %s %s", __DATE__, __TIME__);
+    ESP_LOGI(TAG, "");
+    ESP_LOGI(TAG, "==============================================");
+    ESP_LOGI(TAG, "   K13 Gateway - Control Puente Grúa");
+    ESP_LOGI(TAG, "   Compilado: %s %s", __DATE__, __TIME__);
+    ESP_LOGI(TAG, "==============================================");
+    ESP_LOGI(TAG, "");
     
-    // Inicializar NVS (Non-Volatile Storage)
+    // 1. Inicializar NVS (necesario para WiFi/BT, aunque no lo usemos ahora)
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
+        nvs_flash_erase();
         ret = nvs_flash_init();
     }
-    ESP_ERROR_CHECK(ret);
     
-    ESP_LOGI(TAG, "NVS inicializado correctamente");
-    
-    // Inicializar Config Manager
-    ESP_LOGI(TAG, "Inicializando Config Manager...");
-    config_manager = new ConfigManager();
-    config_manager->init();
-    
-    // Cargar configuración CAN desde NVS
-    ConfigManager::CANConfig can_config;
-    if (config_manager->load_can_config(&can_config) == ESP_OK) {
-        node_id = can_config.node_id;
-        ESP_LOGI(TAG, "✅ Configuración CAN cargada desde NVS");
-    } else {
-        ESP_LOGI(TAG, "⚠️  Usando configuración CAN por defecto");
-    }
-    
-    // Inicializar WiFi Manager (opcional - comentado por defecto)
-    // ESP_LOGI(TAG, "Inicializando WiFi Manager...");
-    // wifi_manager = new WiFiManager();
-    // wifi_manager->init("SSID", "PASSWORD");
-    // wifi_manager->start();
-    // ESP_LOGI(TAG, "✅ WiFi Manager inicializado");
-    
-    // Inicializar Ethernet Manager (opcional - descomentar si se usa)
-    // ESP_LOGI(TAG, "Inicializando Ethernet Manager...");
-    // ethernet_manager = new EthernetManager();
-    // EthernetManager::W5500Config eth_config = {
-    //     .miso_gpio = 19,
-    //     .mosi_gpio = 23,
-    //     .sclk_gpio = 18,
-    //     .cs_gpio = 5,
-    //     .int_gpio = 4,
-    //     .rst_gpio = -1,
-    //     .spi_clock_mhz = 20
-    // };
-    // if (ethernet_manager->init_w5500(eth_config, true) == ESP_OK) {
-    //     ethernet_manager->start();
-    //     ESP_LOGI(TAG, "✅ Ethernet Manager inicializado");
-    // }
-    
-    // Inicializar CAN Manager
-    ESP_LOGI(TAG, "Inicializando CAN Manager...");
+    // 2. Inicializar CAN Manager
+    ESP_LOGI(TAG, "🔧 Inicializando CAN bus...");
     can_manager = new CANManager();
+    
     if (can_manager->init() != ESP_OK) {
-        ESP_LOGE(TAG, "Error inicializando CAN Manager");
+        ESP_LOGE(TAG, "❌ FALLO: No se pudo inicializar CAN");
+        ESP_LOGE(TAG, "   Verifica conexiones TX/RX y transceiver");
         return;
     }
     
     if (can_manager->start() != ESP_OK) {
-        ESP_LOGE(TAG, "Error iniciando CAN Manager");
+        ESP_LOGE(TAG, "❌ FALLO: No se pudo iniciar CAN");
         return;
     }
-    ESP_LOGI(TAG, "✅ CAN Manager inicializado");
-
-    // Preparar PDO IDs
-    const PdoIds pdo = make_pdo_ids(node_id);
-    ESP_LOGI(TAG, "CANopen Node ID: 0x%02X", node_id);
-    ESP_LOGI(TAG, "TPDO1: 0x%03X, RPDO1: 0x%03X, Heartbeat: 0x%03X", 
-             pdo.tpdo1, pdo.rpdo1, pdo.heartbeat);
     
-    // Inicializar OTA Manager
-    ESP_LOGI(TAG, "Inicializando OTA Manager...");
-    ota_manager = new OTAManager();
-    if (ota_manager->init() != ESP_OK) {
-        ESP_LOGE(TAG, "Error inicializando OTA Manager");
-        // No retornar - OTA es opcional
-    } else {
-        ESP_LOGI(TAG, "✅ OTA Manager inicializado");
-        ESP_LOGI(TAG, "Para OTA: Usar HTTP POST a /ota con URL del firmware");
-    }
+    ESP_LOGI(TAG, "✅ CAN bus listo");
+    ESP_LOGI(TAG, "");
     
-    // Inicializar TCP Server (opcional - descomentar si se usa red)
-    // ESP_LOGI(TAG, "Inicializando TCP Server...");
-    // tcp_server = new TCPServerManager();
-    // tcp_server->init(8888);
-    // tcp_server->register_command_callback(command_callback);
-    // if (tcp_server->start() == ESP_OK) {
-    //     ESP_LOGI(TAG, "✅ TCP Server inicializado en puerto 8888");
-    // }
+    // 3. Preparar IDs CANopen
+    const PdoIds pdo = make_pdo_ids(NODE_ID);
+    ESP_LOGI(TAG, "📡 CANopen configurado:");
+    ESP_LOGI(TAG, "   Node ID: 0x%02X", NODE_ID);
+    ESP_LOGI(TAG, "   RPDO1 (recibe Control Word): 0x%03X", pdo.rpdo1);
+    ESP_LOGI(TAG, "   TPDO1 (envía Status Word):   0x%03X", pdo.tpdo1);
+    ESP_LOGI(TAG, "   Heartbeat:                   0x%03X", pdo.heartbeat);
+    ESP_LOGI(TAG, "");
     
     ESP_LOGI(TAG, "========================================");
-    ESP_LOGI(TAG, "Sistema inicializado - Loop principal");
+    ESP_LOGI(TAG, "🚀 Sistema listo - Loop principal activo");
     ESP_LOGI(TAG, "========================================");
+    ESP_LOGI(TAG, "");
     
-    // Loop principal
-    TickType_t last_hb = xTaskGetTickCount();
-    TickType_t last_pdo = xTaskGetTickCount();
+    // ========================================
+    // LOOP PRINCIPAL - Simple y efectivo
+    // ========================================
+    
+    TickType_t last_heartbeat = xTaskGetTickCount();
+    TickType_t last_status = xTaskGetTickCount();
+    uint32_t msg_count = 0;
 
     while(1) {
-        // Procesar RPDO1 (control word)
+        // 1. RECIBIR: Leer Control Word (RPDO1) si hay mensajes
         twai_message_t msg;
         if (can_manager->receive_message(&msg) == ESP_OK) {
             if (msg.identifier == pdo.rpdo1 && msg.data_length_code >= 2) {
-                uint16_t cw = parse_control_word(msg.data);
-                ESP_LOGI(TAG, "RPDO1 recibido CW=0x%04X", cw);
-                cia402.process_control_word(cw);
+                uint16_t control_word = parse_control_word(msg.data);
+                ESP_LOGI(TAG, "📥 Control Word: 0x%04X", control_word);
+                cia402.process_control_word(control_word);
+                msg_count++;
             }
         }
 
-        // Enviar heartbeat cada 1000 ms
-        if (xTaskGetTickCount() - last_hb >= pdMS_TO_TICKS(1000)) {
-            uint8_t hb_state = 0x05; // Operational
-            can_manager->send_message(pdo.heartbeat, &hb_state, 1);
-            last_hb = xTaskGetTickCount();
+        // 2. HEARTBEAT: Enviar cada 1 segundo
+        if (xTaskGetTickCount() - last_heartbeat >= pdMS_TO_TICKS(1000)) {
+            uint8_t state = 0x05; // Operational
+            can_manager->send_message(pdo.heartbeat, &state, 1);
+            ESP_LOGD(TAG, "💓 Heartbeat");
+            last_heartbeat = xTaskGetTickCount();
         }
 
-        // Publicar TPDO1 (Status Word) cada 50 ms
-        if (xTaskGetTickCount() - last_pdo >= pdMS_TO_TICKS(50)) {
-            uint8_t data[8];
+        // 3. STATUS: Publicar Status Word cada 50ms
+        if (xTaskGetTickCount() - last_status >= pdMS_TO_TICKS(50)) {
+            uint8_t data[8] = {0};
             build_status_word(cia402.status_word(), data);
             can_manager->send_message(pdo.tpdo1, data, 8);
-            last_pdo = xTaskGetTickCount();
+            last_status = xTaskGetTickCount();
         }
 
+        // Pequeña pausa para no saturar CPU
         vTaskDelay(pdMS_TO_TICKS(5));
     }
 }

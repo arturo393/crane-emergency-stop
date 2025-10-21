@@ -1,4 +1,4 @@
-# 🤖 Sistema de Automatización para Issues - Resumen Ejecutivo
+# 🤖 GitHub Automation - Resumen Completo para Desarrollo en Solitario
 
 **Fecha**: 2025-10-19  
 **Issue**: #21 - Crear EDS completo para Danfoss R13 F  
