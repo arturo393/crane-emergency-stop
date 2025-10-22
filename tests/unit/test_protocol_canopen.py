@@ -45,10 +45,11 @@ class TestR13CANopenProtocol:
 
     def test_status_word_bits(self):
         """Test de los bits del Status Word."""
-        assert StatusWordBits.READY_TO_SWITCH_ON == (1 << 0)
-        assert StatusWordBits.SWITCHED_ON == (1 << 1)
-        assert StatusWordBits.OPERATION_ENABLED == (1 << 2)
-        assert StatusWordBits.FAULT == (1 << 3)
+        # StatusWordBits contiene los índices de bits, no las máscaras
+        assert StatusWordBits.READY_TO_SWITCH_ON == 0
+        assert StatusWordBits.SWITCHED_ON == 1
+        assert StatusWordBits.OPERATION_ENABLED == 2
+        assert StatusWordBits.FAULT == 3
 
     def test_sdo_write_message(self):
         """Test de creación de mensajes SDO Write."""
@@ -58,11 +59,12 @@ class TestR13CANopenProtocol:
         message = protocol.create_sdo_write(0x6040, 0, 0x000F)
         
         assert message is not None
-        assert 'command' in message
-        assert message['command'] == 'sdo_write'
-        assert message['index'] == 0x6040
-        assert message['subindex'] == 0
-        assert message['data'] == 0x000F
+        assert message.node_id == 1
+        assert message.index == 0x6040
+        assert message.sub_index == 0
+        assert message.is_write == True
+        # Verificar que data es bytes (little endian)
+        assert message.data == (0x000F).to_bytes(4, byteorder='little')
 
     def test_sdo_read_message(self):
         """Test de creación de mensajes SDO Read."""
@@ -72,24 +74,30 @@ class TestR13CANopenProtocol:
         message = protocol.create_sdo_read(0x6041, 0)
         
         assert message is not None
-        assert 'command' in message
-        assert message['command'] == 'sdo_read'
-        assert message['index'] == 0x6041
-        assert message['subindex'] == 0
+        assert message.node_id == 1
+        assert message.index == 0x6041
+        assert message.sub_index == 0
+        assert message.is_write == False
 
     def test_enable_operation_sequence(self):
-        """Test de secuencia para habilitar operación."""
+        """Test de secuencia para habilitar operación usando comandos individuales."""
         protocol = R13CANopenProtocol(node_id=1)
         
-        # Obtener la secuencia de habilitación
-        messages = protocol.get_enable_operation_sequence()
+        # La secuencia de habilitación típica en CiA 402 es:
+        # 1. Shutdown -> 2. Switch On -> 3. Enable Operation
         
-        assert isinstance(messages, list)
-        assert len(messages) >= 3  # Debe tener al menos 3 comandos
+        # Test comando Shutdown
+        msg1 = protocol.send_control_command(CANopenCommands.SHUTDOWN)
+        assert msg1.index == 0x6040
+        assert msg1.is_write == True
         
-        # Verificar que contiene los comandos necesarios
-        control_word_commands = [msg for msg in messages if msg.get('index') == 0x6040]
-        assert len(control_word_commands) >= 2  # Al menos 2 comandos de Control Word
+        # Test comando Switch On
+        msg2 = protocol.send_control_command(CANopenCommands.SWITCH_ON)
+        assert msg2.index == 0x6040
+        
+        # Test comando Enable Operation
+        msg3 = protocol.send_control_command(CANopenCommands.ENABLE_OPERATION)
+        assert msg3.index == 0x6040
 
     def test_velocity_control(self):
         """Test de control de velocidad."""
@@ -97,24 +105,25 @@ class TestR13CANopenProtocol:
         
         # Test de configuración de velocidad
         velocity = 1000  # RPM
-        message = protocol.create_sdo_write(0x6081, 0, velocity)
+        message = protocol.set_target_velocity(velocity)
         
-        assert message['index'] == 0x6081
-        assert message['data'] == velocity
+        assert message.index == 0x6081
+        assert message.is_write == True
+        # Verificar que velocity se convierte a bytes correctamente
+        assert message.data == velocity.to_bytes(4, byteorder='little')
 
     def test_emergency_stop_command(self):
         """Test de comando de parada de emergencia."""
         protocol = R13CANopenProtocol(node_id=1)
         
-        # Parada de emergencia (Quick Stop) - usando valores numéricos
-        switch_on = 0x01
-        enable_voltage = 0x02
-        quick_stop_value = switch_on | enable_voltage
-        
-        message = protocol.create_sdo_write(0x6040, 0, quick_stop_value)
+        # Parada de emergencia usando el comando Quick Stop
+        message = protocol.send_control_command(CANopenCommands.QUICK_STOP)
         
         assert message is not None
-        assert message['index'] == 0x6040
+        assert message.index == 0x6040
+        assert message.is_write == True
+        # Verificar que el valor es el correcto para Quick Stop
+        assert message.data == (0x0002).to_bytes(2, byteorder='little')
 
 
 if __name__ == "__main__":
