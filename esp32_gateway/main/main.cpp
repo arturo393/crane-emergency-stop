@@ -48,14 +48,10 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "🔧 Inicializando CAN bus...");
     can_manager = new CANManager();
     
-    if (can_manager->init() != ESP_OK) {
+    // GPIO 4 = TX, GPIO 5 = RX, 250 kbps
+    if (can_manager->init(4, 5, 250000) != ESP_OK) {
         ESP_LOGE(TAG, "❌ FALLO: No se pudo inicializar CAN");
-        ESP_LOGE(TAG, "   Verifica conexiones TX/RX y transceiver");
-        return;
-    }
-    
-    if (can_manager->start() != ESP_OK) {
-        ESP_LOGE(TAG, "❌ FALLO: No se pudo iniciar CAN");
+        ESP_LOGE(TAG, "   Verifica conexiones TX/RX (GPIO 4/5) y transceiver");
         return;
     }
     
@@ -85,9 +81,9 @@ extern "C" void app_main(void)
     uint32_t msg_count = 0;
 
     while(1) {
-        // 1. RECIBIR: Leer Control Word (RPDO1) si hay mensajes
+        // 1. RECIBIR: Leer Control Word (RPDO1) si hay mensajes (timeout 10ms)
         twai_message_t msg;
-        if (can_manager->receive_message(&msg) == ESP_OK) {
+        if (can_manager->receive_message(&msg, 10) == ESP_OK) {
             if (msg.identifier == pdo.rpdo1 && msg.data_length_code >= 2) {
                 uint16_t control_word = parse_control_word(msg.data);
                 ESP_LOGI(TAG, "📥 Control Word: 0x%04X", control_word);

@@ -82,12 +82,12 @@ class BL335Gateway:
             # Agregar nodo R13 F con EDS
             logger.info(f"Agregando nodo R13 F (ID={self.node_id})...")
             
-            # Cargar EDS file (mínimo para desarrollo)
-            eds_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'danfoss_r13f_minimal.eds')
+            # Cargar EDS file completo (CiA 301/402)
+            eds_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'danfoss_r13f_complete.eds')
             if os.path.exists(eds_path):
                 logger.info(f"Cargando EDS desde: {eds_path}")
                 self.k13_node = self.network.add_node(self.node_id, eds_path)
-                logger.info("✅ EDS cargado correctamente")
+                logger.info("✅ EDS completo cargado correctamente (CiA 301/402)")
                 
                 # Configurar PDO directamente desde el EDS sin intentar leer del dispositivo
                 # (el simulador puede no tener todos los objetos SDO implementados)
@@ -654,7 +654,12 @@ class BL335Gateway:
             Diccionario con valor leído
         """
         try:
-            value = self.k13_node.sdo[index][subindex].raw
+            # Acceso correcto según subindex
+            if subindex == 0:
+                value = self.k13_node.sdo[index].raw
+            else:
+                value = self.k13_node.sdo[index][subindex].raw
+            
             logger.info(f"SDO Read: 0x{index:04X}:{subindex} = {value}")
             return {'status': 'ok', 'value': value}
         
@@ -675,7 +680,12 @@ class BL335Gateway:
             Diccionario con resultado
         """
         try:
-            self.k13_node.sdo[index][subindex].raw = value
+            # Acceso correcto según subindex
+            if subindex == 0:
+                self.k13_node.sdo[index].raw = value
+            else:
+                self.k13_node.sdo[index][subindex].raw = value
+            
             logger.info(f"SDO Write: 0x{index:04X}:{subindex} = {value}")
             return {'status': 'ok', 'message': 'Value written'}
         

@@ -556,8 +556,9 @@ class R13FSimulator:
 
                 if self.device_state == DeviceState.SWITCH_ON_DISABLED:
                     # Transición 2: Shutdown (0x0006 o 0x0007)
-                    # Requiere: Switch On=1, Enable Voltage=1, Quick Stop=1
-                    if switch_on and enable_voltage and quick_stop:
+                    # CiA 402: Requiere Enable Voltage=1 y Quick Stop=1
+                    # Switch On puede estar en 0 (0x0006) o en 1 (0x0007)
+                    if enable_voltage and quick_stop:
                         self.device_state = DeviceState.READY_TO_SWITCH_ON
                         changed = True
 
