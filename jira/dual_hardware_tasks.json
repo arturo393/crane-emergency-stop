@@ -1,0 +1,137 @@
+{
+  "epic": {
+    "key": "GAT-DUAL",
+    "summary": "Estrategia Dual Hardware - Evaluación Comparativa BL335 vs ESP32",
+    "description": "Epic para implementar funcionalidad IDÉNTICA en ambos gateways (BL335 y EdgeBox Lite ESP32) y realizar evaluación comparativa para seleccionar el hardware definitivo del proyecto.\n\nObjetivo: Probar ambos gateways con el mismo código funcional para decidir cuál ofrece mejor rendimiento, confiabilidad y facilidad de mantenimiento en entorno industrial.\n\nHardware:\n• BL335 Gateway (Linux ARM) - Comprado, en posesión\n• EdgeBox Lite (ESP32) - Comprado, en posesión\n\nCriterios de evaluación:\n• Confiabilidad (30%)\n• Rendimiento (25%)\n• Seguridad (20%)\n• Mantenibilidad (15%)\n• Costo TCO (10%)",
+    "start_date": "2025-11-01",
+    "due_date": "2025-11-30"
+  },
+  "tasks": [
+    {
+      "summary": "TCP Server JSON para ESP32 (Port 9999)",
+      "description": "Implementar TCP server en firmware ESP32 con protocolo JSON idéntico a BL335.\n\nRequisitos:\n• Puerto 9999\n• Multi-cliente (hasta 4 simultáneos)\n• Comandos JSON: emergency_stop, startup, shutdown, set_velocity, get_status\n• Respuestas JSON con mismo formato que BL335\n• Manejo de desconexiones\n• Buffer de comandos\n\nEntregables:\n• tcp_server.cpp/h en esp32_gateway/main/\n• Protocolo JSON documentado\n• Tests de conectividad\n\nPrioridad: CRÍTICA (bloquea testing comparativo)",
+      "priority": "Highest",
+      "labels": ["esp32", "tcp", "networking", "parity", "critical"],
+      "estimate": "8h",
+      "start_date": "2025-11-01",
+      "due_date": "2025-11-03"
+    },
+    {
+      "summary": "Event Logging System para ESP32 (C++)",
+      "description": "Implementar sistema de logging industrial en ESP32 con especificación idéntica a Python EventLogger.\n\nRequisitos:\n• 6 niveles: DEBUG(10), INFO(20), WARNING(30), ERROR(40), CRITICAL(50), SAFETY(60)\n• 7 categorías: SAFETY, CONTROL, COMMUNICATION, SYSTEM, USER, HARDWARE, DIAGNOSTIC\n• Buffer circular thread-safe (FreeRTOS)\n• Almacenamiento persistente (SPIFFS/NVS)\n• Export JSON para auditorías\n• Callbacks para eventos críticos\n\nEntregables:\n• event_logger.cpp/h\n• Integración con sistema CAN\n• Tests unitarios\n\nPrioridad: CRÍTICA (requisito industrial)",
+      "priority": "Highest",
+      "labels": ["esp32", "logging", "industrial", "safety", "parity", "critical"],
+      "estimate": "6h",
+      "start_date": "2025-11-01",
+      "due_date": "2025-11-04"
+    },
+    {
+      "summary": "Event Logging Integration para BL335",
+      "description": "Integrar EventLogger Python existente (src/core/event_logger.py) con BL335Gateway.\n\nRequisitos:\n• Conectar eventos CANopen con EventLogger\n• Logging a archivo con rotación\n• Eventos de seguridad (SAFETY level)\n• Estadísticas por nivel/categoría\n• Export JSON para reportes\n\nEntregables:\n• event_logger.py integrado en BL335Gateway\n• Tests de integración\n• Documentación de eventos\n\nPrioridad: CRÍTICA",
+      "priority": "Highest",
+      "labels": ["bl335", "logging", "integration", "parity", "critical"],
+      "estimate": "3h",
+      "start_date": "2025-11-01",
+      "due_date": "2025-11-02"
+    },
+    {
+      "summary": "Sistema de Recuperación de Errores - ESP32",
+      "description": "Implementar sistema robusto de recuperación automática de errores para entorno industrial.\n\nRequisitos:\n• Watchdog timer (FreeRTOS)\n• Auto-recovery de CAN bus (reinicio automático)\n• Connection retry logic (exponential backoff)\n• Health monitoring (memoria, CPU, uptime)\n• Graceful degradation\n• Sistema de alertas\n\nEntregables:\n• recovery_manager.cpp/h\n• Integración con event logging\n• Tests de fault injection\n\nPrioridad: CRÍTICA (seguridad industrial)",
+      "priority": "Highest",
+      "labels": ["esp32", "recovery", "industrial", "safety", "parity"],
+      "estimate": "6h",
+      "start_date": "2025-11-04",
+      "due_date": "2025-11-06"
+    },
+    {
+      "summary": "Sistema de Recuperación de Errores - BL335",
+      "description": "Implementar sistema robusto de recuperación automática de errores (paridad con ESP32).\n\nRequisitos:\n• Process watchdog (systemd/supervisor)\n• Auto-recovery de CAN bus\n• Connection retry logic\n• Health monitoring\n• Graceful degradation\n• Sistema de alertas\n\nEntregables:\n• recovery_manager.py\n• Integración con event logging\n• Tests de fault injection\n\nPrioridad: CRÍTICA",
+      "priority": "Highest",
+      "labels": ["bl335", "recovery", "industrial", "safety", "parity"],
+      "estimate": "4h",
+      "start_date": "2025-11-04",
+      "due_date": "2025-11-06"
+    },
+    {
+      "summary": "NMT Completo para ESP32",
+      "description": "Completar implementación de Network Management (NMT) CANopen en ESP32.\n\nRequisitos:\n• Estados NMT: Initialization, Pre-operational, Operational, Stopped\n• Boot-up message (COB-ID 0x700 + Node ID)\n• Node guarding / Heartbeat consumer\n• NMT state transitions\n• Error handling\n\nEntregables:\n• nmt.cpp/h en components/canopen/\n• Integración con state machine\n• Tests de transiciones\n\nPrioridad: ALTA",
+      "priority": "High",
+      "labels": ["esp32", "canopen", "nmt", "parity"],
+      "estimate": "4h",
+      "start_date": "2025-11-07",
+      "due_date": "2025-11-08"
+    },
+    {
+      "summary": "Emergency Messages (EMCY) para ESP32",
+      "description": "Implementar objetos CANopen Emergency (EMCY) según CiA 301.\n\nRequisitos:\n• EMCY object 0x1001 (Error register)\n• EMCY object 0x1003 (Pre-defined error field)\n• EMCY object 0x1014 (COB-ID EMCY)\n• Emergency message transmission (COB-ID 0x80 + Node ID)\n• Error history\n\nEntregables:\n• emcy.cpp/h\n• Integración con error handling\n• Tests de emergency scenarios\n\nPrioridad: ALTA",
+      "priority": "High",
+      "labels": ["esp32", "canopen", "emcy", "safety", "parity"],
+      "estimate": "3h",
+      "start_date": "2025-11-08",
+      "due_date": "2025-11-09"
+    },
+    {
+      "summary": "Sistema de Diagnósticos Avanzado - ESP32",
+      "description": "Implementar panel de diagnósticos industrial completo.\n\nRequisitos:\n• Histórico de eventos (últimos 1000)\n• Estadísticas por categoría\n• Exportación de reportes (JSON)\n• Alertas configurables\n• Health dashboard\n• Performance metrics\n\nEntregables:\n• diagnostics.cpp/h\n• API de diagnósticos vía TCP\n• Documentación de métricas\n\nPrioridad: ALTA",
+      "priority": "High",
+      "labels": ["esp32", "diagnostics", "industrial", "parity"],
+      "estimate": "8h",
+      "start_date": "2025-11-10",
+      "due_date": "2025-11-12"
+    },
+    {
+      "summary": "Sistema de Diagnósticos Avanzado - BL335",
+      "description": "Implementar panel de diagnósticos industrial completo (paridad con ESP32).\n\nRequisitos:\n• Histórico de eventos\n• Estadísticas por categoría\n• Exportación de reportes\n• Alertas configurables\n• Health dashboard\n• Performance metrics\n\nEntregables:\n• diagnostics.py\n• API REST endpoints\n• Documentación\n\nPrioridad: ALTA",
+      "priority": "High",
+      "labels": ["bl335", "diagnostics", "industrial", "parity"],
+      "estimate": "6h",
+      "start_date": "2025-11-10",
+      "due_date": "2025-11-12"
+    },
+    {
+      "summary": "Suite de Tests Comparativos",
+      "description": "Crear suite completa de tests para evaluación comparativa de ambos gateways.\n\nTests incluidos:\n• Latency test (emergency stop, comandos)\n• Stress test (carga sostenida)\n• Endurance test (24 horas continuas)\n• Fault injection test\n• Performance benchmarks\n• Resource usage monitoring\n\nEntregables:\n• tests/comparative/latency_test.py\n• tests/comparative/stress_test.py\n• tests/comparative/endurance_test.py\n• Dashboard de resultados\n• Scripts de automatización\n\nPrioridad: CRÍTICA (para decisión final)",
+      "priority": "Highest",
+      "labels": ["testing", "comparative", "automation", "parity"],
+      "estimate": "10h",
+      "start_date": "2025-11-13",
+      "due_date": "2025-11-16"
+    },
+    {
+      "summary": "Setup Físico Dual Hardware",
+      "description": "Configurar ambiente físico para testing comparativo simultáneo.\n\nTareas:\n• Montar ambos gateways en panel de pruebas\n• Cableado CAN en paralelo (CAN splitter/hub)\n• Alimentación independiente para cada uno\n• Acceso de red a ambos (IPs fijas)\n• Instrumentación (osciloscopio, analizador CAN)\n• Etiquetado y documentación\n\nEntregables:\n• Diagrama de conexiones\n• Fotos del setup\n• IPs y configuración de red\n• Procedimiento de pruebas\n\nPrioridad: ALTA",
+      "priority": "High",
+      "labels": ["hardware", "setup", "testing", "comparative"],
+      "estimate": "4h",
+      "start_date": "2025-11-17",
+      "due_date": "2025-11-18"
+    },
+    {
+      "summary": "Ejecución de Pruebas Comparativas",
+      "description": "Ejecutar suite completa de tests comparativos y recolectar métricas.\n\nPruebas a ejecutar:\n1. Pruebas funcionales (MISMA secuencia de comandos)\n2. Medición de latencias\n3. Validación de respuestas idénticas\n4. Stress testing\n5. Test de 24 horas\n6. Fault injection\n7. Power cycling\n\nMétricas a recolectar:\n• Latencia emergency stop (ms)\n• Throughput CAN messages (msg/s)\n• Memoria utilizada (MB)\n• CPU load (%)\n• Tiempo de recovery (ms)\n• Errores durante 24h\n• Uptime percentage\n\nEntregables:\n• Logs completos de todas las pruebas\n• Métricas en formato CSV/JSON\n• Gráficas comparativas\n• Incidentes documentados\n\nPrioridad: CRÍTICA",
+      "priority": "Highest",
+      "labels": ["testing", "comparative", "metrics", "evaluation"],
+      "estimate": "16h",
+      "start_date": "2025-11-19",
+      "due_date": "2025-11-22"
+    },
+    {
+      "summary": "Reporte Comparativo y Recomendación Final",
+      "description": "Analizar resultados y generar reporte técnico con recomendación justificada.\n\nContenido del reporte:\n• Executive Summary\n• Metodología de pruebas\n• Matriz de resultados completa\n• Análisis por categoría (ponderado):\n  - Seguridad (30%)\n  - Rendimiento (25%)\n  - Confiabilidad (20%)\n  - Mantenibilidad (15%)\n  - Costo TCO (10%)\n• Pros/cons de cada gateway\n• Recomendación final (BL335 o ESP32)\n• Justificación técnica detallada\n• Plan de implementación para ganador\n• Apéndices (datos crudos, gráficas)\n\nEntregables:\n• docs/comparative_results/final_report.md\n• Presentación ejecutiva (PDF/slides)\n• Matriz de decisión (Excel)\n• Datos crudos para auditoría\n\nPrioridad: CRÍTICA",
+      "priority": "Highest",
+      "labels": ["documentation", "decision", "comparative", "executive"],
+      "estimate": "8h",
+      "start_date": "2025-11-23",
+      "due_date": "2025-11-25"
+    },
+    {
+      "summary": "Actualizar Hardware Adquirido - Ambos Dispositivos",
+      "description": "Actualizar documentación de hardware para reflejar que AMBOS dispositivos han sido adquiridos.\n\nTareas:\n• Actualizar HARDWARE_ADQUIRIDO.md con info de BL335\n• Documentar specs completas de ambos\n• Fotos de ambos dispositivos\n• Números de serie\n• Fechas de adquisición\n• Costos reales\n• Accesorios incluidos\n\nEntregables:\n• HARDWARE_ADQUIRIDO.md actualizado\n• docs/hardware/bl335/ (nuevo directorio)\n• docs/hardware/edgebox_lite/ (actualizar)\n• Inventario fotográfico completo\n\nPrioridad: MEDIA",
+      "priority": "Medium",
+      "labels": ["documentation", "hardware", "inventory"],
+      "estimate": "2h",
+      "start_date": "2025-11-01",
+      "due_date": "2025-11-01"
+    }
+  ]
+}

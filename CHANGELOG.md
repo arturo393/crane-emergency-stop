@@ -4,6 +4,75 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### 2025-10-24 - Desktop GUI PyQt6 Implementation
+
+- **Desktop GUI Complete** (✅ NUEVO):
+  - `src/web_ui/desktop_gui.py`: 730 líneas de código PyQt6
+  - 4 widgets profesionales: DashboardWidget, CANMonitorWidget, ControlPanelWidget, LogWidget
+  - Threading asíncrono (StatusUpdateThread) sin bloqueo de UI
+  - Color coding automático para estados CiA 402
+  - Buffer circular para monitor CAN (100 mensajes)
+  - Emergency stop prominente con botón rojo grande
+  - Integración completa con IntegratedSystem
+
+- **Testing Desktop GUI** (✅ 100%):
+  - `tests/unit/test_desktop_gui.py`: 15 tests, todos pasando
+  - Cobertura completa: widgets, señales Qt, threading
+  - Validación de funcionalidad: dashboard, monitor, control, logs
+  - Tests en 8.97s
+
+- **Documentación Exhaustiva** (✅ 950+ líneas):
+  - `docs/GUI_COMPARISON.md`: Comparación Web UI vs Desktop GUI (250 líneas)
+  - `docs/DESKTOP_GUI_QUICKSTART.md`: Guía rápida de usuario (300 líneas)
+  - `PROGRESS_GUI_24OCT2025.md`: Reporte completo de sesión (400 líneas)
+  - Arquitectura detallada, casos de uso, roadmap de mejoras
+
+- **Infraestructura**:
+  - `scripts/launch_gui.py`: Script launcher para Desktop GUI
+  - `.vscode/tasks.json`: Task "Iniciar Desktop GUI" agregado
+  - `requirements.txt`: PyQt6>=6.4.0 agregado
+  - PyQt6 6.9.1 instalado y validado
+
+- **Decisión Estratégica**:
+  - Mantener DOS interfaces complementarias:
+    - Web UI (FastAPI + WebSocket) - Acceso remoto, dashboard central
+    - Desktop GUI (PyQt6) - Control local, máxima performance
+  - Cobertura completa de casos de uso industrial
+
+- **Progreso del Proyecto**:
+  - Tests totales: 53/54 (98%) - 31 unitarios + 15 GUI + 7 E2E
+  - Progreso TODO: 87% → 88%
+  - GUI: ⏸️ PENDIENTE → 🚀 EN PROGRESO (85% completado)
+
+### 2025-10-24 - SDO Bug Fix & Delay Optimization
+
+- **BL335 Gateway SDO Fix** (✅ COMPLETADO):
+  - Bug corregido: `'SdoVariable' object is not subscriptable`
+  - Solución: Acceso condicional basado en subindex
+  - `subindex == 0`: acceso directo `sdo[index].raw`
+  - `subindex != 0`: doble subscript `sdo[index][subindex].raw`
+  - Tests mejorados: 12/17 → 16/17 (94%)
+
+- **Control Sequences Optimization** (✅ COMPLETADO):
+  - `src/k13_controller/control_sequences.py`: Delay adaptativo implementado
+  - Constante SDO_MIN_DELAY = 0.05 (50ms mínimo entre SDO writes)
+  - Prevención de saturación del simulador
+  - Fórmula: `adjusted_step_time = max(step_time, SDO_MIN_DELAY)`
+
+- **ESP32 Firmware Build** (✅ COMPLETADO):
+  - SSL certificates resueltos: certifi 2025.10.5
+  - ESP-IDF v5.1.5 compilación exitosa
+  - 951/951 archivos compilados
+  - Binarios generados: bootloader (20.97 KB), partition-table (3 KB), app (227.17 KB)
+
+- **Documentation** (✅ COMPLETADO):
+  - `docs/BC292382016572en-000201.md`: Manual Danfoss R13 F reorganizado (800 líneas)
+  - Table of contents con navegación
+  - CANopen protocol details (CiA 402)
+  - Troubleshooting procedures mejoradas
+  - `TODO.md`: 460 líneas de tracking completo
+  - `PROGRESS_24OCT2025.md`: Reporte de sesión (300+ líneas)
+
 ### 2025-10-18 - ESP32 TCP Server & BL335 PDO Support Completion
 
 - **ESP32 Gateway TCP Server** (✅ COMPLETO):

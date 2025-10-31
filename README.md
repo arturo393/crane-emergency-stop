@@ -601,6 +601,33 @@ canopen:
 
 ### API de Control
 
+## 🧪 Testing
+
+```bash
+# Todos los tests
+pytest tests/ -v
+
+# Solo tests unitarios
+pytest tests/unit/ -v
+
+# Tests de GUI (PyQt6)
+pytest tests/unit/test_desktop_gui.py -v
+
+# Tests E2E
+pytest tests/e2e/ -v
+
+# Con cobertura
+pytest tests/ --cov=src --cov-report=html
+```
+
+**Estado actual:**
+- ✅ Tests unitarios: 31/32 passing (97%)
+- ✅ Tests Desktop GUI: 15/15 passing (100%)
+- ✅ Tests E2E: 7/7 passing (100%)
+- 📊 Cobertura: ~65%
+
+---
+
 ## 📁 Estructura del Proyecto
 
 ```python

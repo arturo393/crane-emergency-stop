@@ -34,6 +34,9 @@ jinja2>=3.1.0
 python-multipart>=0.0.6
 websockets>=12.0
 
+# Desktop GUI
+PyQt6>=6.4.0
+
 # Hardware y comunicaciones (solo para Raspberry Pi)
 # RPi.GPIO>=0.7.1  # Solo para Raspberry Pi - comentado para desarrollo
 # gpiozero>=1.6.0  # Solo para Raspberry Pi - comentado para desarrollo

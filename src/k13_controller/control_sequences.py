@@ -288,7 +288,11 @@ class ControlSequences:
             step_size = velocity_delta / num_steps
             step_time = ramp_time / num_steps
             
-            logger.info(f"Rampa: {num_steps} pasos de {step_size:.1f} RPM cada {step_time:.3f}s")
+            # Delay mínimo para evitar saturar SDO (50ms mínimo entre writes)
+            SDO_MIN_DELAY = 0.05
+            adjusted_step_time = max(step_time, SDO_MIN_DELAY)
+            
+            logger.info(f"Rampa: {num_steps} pasos de {step_size:.1f} RPM cada {adjusted_step_time:.3f}s")
             
             # Aplicar rampa
             for i in range(num_steps + 1):
@@ -306,7 +310,9 @@ class ControlSequences:
                     return SequenceResult.FAILED
                 
                 logger.debug(f"  Paso {i+1}/{num_steps+1}: {intermediate_velocity} RPM")
-                time.sleep(step_time)
+                
+                # Usar delay ajustado para no saturar SDO
+                time.sleep(adjusted_step_time)
             
             logger.info(f"  ✅ Velocidad configurada: {target_velocity} RPM")
             logger.info("=" * 60)

@@ -19,16 +19,21 @@ logger = logging.getLogger("TestSequences")
 @pytest.fixture
 def integrated_system():
     """Fixture para sistema integrado"""
-    system = IntegratedSystem(node_id=1, tcp_port=9998)
+    # Usar puerto diferente para evitar conflictos
+    import random
+    tcp_port = random.randint(10000, 11000)
+    
+    system = IntegratedSystem(node_id=1, tcp_port=tcp_port)
     
     if not system.start():
         pytest.skip("No se pudo iniciar sistema integrado")
     
-    time.sleep(1)
+    time.sleep(1.5)  # Dar más tiempo para inicialización
     
     yield system
     
     system.stop()
+    time.sleep(0.5)  # Dar tiempo para cleanup
 
 
 @pytest.fixture
@@ -82,9 +87,8 @@ class TestBasicSequences:
 class TestVelocitySequences:
     """Tests para secuencias de velocidad"""
     
-    @pytest.mark.skip(reason="Falta investigar timeouts SDO en rampa de velocidad - issue conocido")
     def test_set_velocity_safe(self, control_sequences):
-        """Test: Configurar velocidad con rampa"""
+        """Test: Configurar velocidad con rampa (fix SDO delay)"""
         # Arrancar
         control_sequences.startup_sequence()
         time.sleep(0.5)
