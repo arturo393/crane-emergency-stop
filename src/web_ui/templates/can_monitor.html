@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAN Monitor - K13 Puente Grúa</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        .message-row:hover {
+            background-color: #f3f4f6;
+        }
+        
+        .type-NMT { color: #8b5cf6; }
+        .type-SYNC { color: #06b6d4; }
+        .type-EMCY { color: #ef4444; }
+        .type-TPDO1, .type-TPDO2, .type-TPDO3, .type-TPDO4 { color: #10b981; }
+        .type-RPDO1, .type-RPDO2, .type-RPDO3, .type-RPDO4 { color: #3b82f6; }
+        .type-SDO_TX, .type-SDO_RX { color: #f59e0b; }
+        .type-HEARTBEAT { color: #ec4899; }
+        .type-UNKNOWN { color: #6b7280; }
+        
+        .dir-TX { color: #ef4444; }
+        .dir-RX { color: #10b981; }
+    </style>
+</head>
+<body class="bg-gray-100" x-data="canMonitor()" x-init="init()">
+    <!-- Header -->
+    <header class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="hover:text-blue-200">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                    </a>
+                    <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                    </svg>
+                    <h1 class="text-2xl font-bold">Monitor CAN Bus</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-3 h-3 rounded-full animate-pulse" :class="connected ? 'bg-green-500' : 'bg-red-500'"></div>
+                        <span class="text-sm" x-text="connected ? 'Conectado' : 'Desconectado'"></span>
+                    </div>
+                    <button 
+                        @click="toggleMonitoring()"
+                        :class="monitoring ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'"
+                        class="px-4 py-2 rounded-lg font-semibold transition-colors">
+                        <span x-show="monitoring">⏸ Pausar</span>
+                        <span x-show="!monitoring">▶️ Reanudar</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Statistics Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <h3 class="text-xs font-medium text-gray-600 mb-1">Total Mensajes</h3>
+                <p class="text-2xl font-bold text-gray-900" x-text="stats.total_messages"></p>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <h3 class="text-xs font-medium text-gray-600 mb-1">En Buffer</h3>
+                <p class="text-2xl font-bold text-blue-600" x-text="stats.buffer_size"></p>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <h3 class="text-xs font-medium text-gray-600 mb-1">TX</h3>
+                <p class="text-2xl font-bold text-red-600" x-text="stats.messages_by_direction.TX || 0"></p>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <h3 class="text-xs font-medium text-gray-600 mb-1">RX</h3>
+                <p class="text-2xl font-bold text-green-600" x-text="stats.messages_by_direction.RX || 0"></p>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <h3 class="text-xs font-medium text-gray-600 mb-1">Mensajes/s</h3>
+                <p class="text-2xl font-bold text-purple-600" x-text="messagesPerSecond.toFixed(1)"></p>
+            </div>
+        </div>
+
+        <!-- Filters and Controls -->
+        <div class="bg-white rounded-lg shadow-md p-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <!-- Filter by Type -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Mensaje</label>
+                    <select x-model="filterType" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Todos</option>
+                        <option value="NMT">NMT</option>
+                        <option value="SYNC">SYNC</option>
+                        <option value="EMCY">EMCY</option>
+                        <option value="TPDO1">TPDO1</option>
+                        <option value="TPDO2">TPDO2</option>
+                        <option value="RPDO1">RPDO1</option>
+                        <option value="RPDO2">RPDO2</option>
+                        <option value="SDO_TX">SDO TX</option>
+                        <option value="SDO_RX">SDO RX</option>
+                        <option value="HEARTBEAT">HEARTBEAT</option>
+                    </select>
+                </div>
+                
+                <!-- Filter by Direction -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Dirección</label>
+                    <select x-model="filterDirection" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Todas</option>
+                        <option value="TX">TX (Transmit)</option>
+                        <option value="RX">RX (Receive)</option>
+                    </select>
+                </div>
+                
+                <!-- Filter by COB-ID -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">COB-ID</label>
+                    <input 
+                        x-model="filterCobId" 
+                        type="text" 
+                        placeholder="ej: 0x181"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <!-- Actions -->
+                <div class="flex items-end space-x-2">
+                    <button 
+                        @click="clearMessages()" 
+                        class="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md font-medium transition-colors">
+                        🗑️ Limpiar
+                    </button>
+                    <button 
+                        @click="exportToCSV()" 
+                        class="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md font-medium transition-colors">
+                        💾 Exportar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CAN Messages Table -->
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dir</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">COB-ID</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DLC</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <template x-for="msg in filteredMessages" :key="msg.id">
+                            <tr class="message-row transition-colors">
+                                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500" x-text="msg.id"></td>
+                                <td class="px-4 py-2 whitespace-nowrap text-xs text-gray-500" x-text="formatTimestamp(msg.timestamp)"></td>
+                                <td class="px-4 py-2 whitespace-nowrap">
+                                    <span :class="'dir-' + msg.direction" class="text-xs font-bold" x-text="msg.direction"></span>
+                                </td>
+                                <td class="px-4 py-2 whitespace-nowrap">
+                                    <code class="text-sm font-mono text-gray-900" x-text="msg.cob_id"></code>
+                                </td>
+                                <td class="px-4 py-2 whitespace-nowrap">
+                                    <span :class="'type-' + msg.type" class="text-xs font-semibold px-2 py-1 rounded" x-text="msg.type"></span>
+                                </td>
+                                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500" x-text="msg.dlc"></td>
+                                <td class="px-4 py-2">
+                                    <code class="text-xs font-mono text-gray-700" x-text="msg.data_bytes"></code>
+                                </td>
+                            </tr>
+                        </template>
+                        
+                        <tr x-show="filteredMessages.length === 0">
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                                <div class="flex flex-col items-center justify-center">
+                                    <svg class="w-12 h-12 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                    </svg>
+                                    <p>No hay mensajes CAN</p>
+                                    <p class="text-sm" x-show="!monitoring">El monitoreo está pausado</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination Info -->
+            <div class="bg-gray-50 px-4 py-3 border-t border-gray-200">
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-gray-700">
+                        Mostrando <span class="font-medium" x-text="filteredMessages.length"></span> mensajes
+                        <span x-show="filterType || filterDirection || filterCobId"> (filtrados)</span>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        Buffer: <span x-text="messages.length"></span>/100
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Message Type Legend -->
+        <div class="mt-6 bg-white rounded-lg shadow-md p-4">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">Leyenda de Tipos de Mensaje CANopen</h3>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+                <div class="flex items-center space-x-2">
+                    <span class="type-NMT font-bold">●</span>
+                    <span>NMT - Network Management</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="type-SYNC font-bold">●</span>
+                    <span>SYNC - Synchronization</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="type-EMCY font-bold">●</span>
+                    <span>EMCY - Emergency</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="type-TPDO1 font-bold">●</span>
+                    <span>TPDO - Transmit PDO</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="type-RPDO1 font-bold">●</span>
+                    <span>RPDO - Receive PDO</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="type-SDO_TX font-bold">●</span>
+                    <span>SDO - Service Data Object</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="type-HEARTBEAT font-bold">●</span>
+                    <span>HEARTBEAT - Node Guard</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function canMonitor() {
+            return {
+                messages: [],
+                stats: {
+                    total_messages: 0,
+                    buffer_size: 0,
+                    messages_by_type: {},
+                    messages_by_direction: { TX: 0, RX: 0 }
+                },
+                monitoring: true,
+                connected: false,
+                filterType: '',
+                filterDirection: '',
+                filterCobId: '',
+                messagesPerSecond: 0,
+                lastMessageCount: 0,
+                
+                init() {
+                    this.loadMessages();
+                    this.loadStatistics();
+                    
+                    // Poll messages every second if monitoring
+                    setInterval(() => {
+                        if (this.monitoring) {
+                            this.loadMessages();
+                            this.loadStatistics();
+                            this.calculateMessageRate();
+                        }
+                    }, 1000);
+                    
+                    // Check connection
+                    this.checkConnection();
+                    setInterval(() => this.checkConnection(), 5000);
+                },
+                
+                async loadMessages() {
+                    try {
+                        const response = await fetch('/api/can-messages?limit=100');
+                        const data = await response.json();
+                        this.messages = data.messages.reverse(); // Más recientes primero
+                    } catch (error) {
+                        console.error('Error loading messages:', error);
+                        this.connected = false;
+                    }
+                },
+                
+                async loadStatistics() {
+                    try {
+                        const response = await fetch('/api/can-statistics');
+                        this.stats = await response.json();
+                        this.connected = true;
+                    } catch (error) {
+                        console.error('Error loading statistics:', error);
+                        this.connected = false;
+                    }
+                },
+                
+                async clearMessages() {
+                    if (!confirm('¿Seguro que deseas limpiar el buffer de mensajes CAN?')) {
+                        return;
+                    }
+                    
+                    try {
+                        await fetch('/api/can-messages', { method: 'DELETE' });
+                        this.messages = [];
+                        this.loadStatistics();
+                    } catch (error) {
+                        console.error('Error clearing messages:', error);
+                        alert('Error al limpiar mensajes');
+                    }
+                },
+                
+                toggleMonitoring() {
+                    this.monitoring = !this.monitoring;
+                },
+                
+                async checkConnection() {
+                    try {
+                        const response = await fetch('/api/status');
+                        const status = await response.json();
+                        this.connected = status.connected || false;
+                    } catch (error) {
+                        this.connected = false;
+                    }
+                },
+                
+                calculateMessageRate() {
+                    const currentCount = this.stats.total_messages;
+                    this.messagesPerSecond = currentCount - this.lastMessageCount;
+                    this.lastMessageCount = currentCount;
+                },
+                
+                exportToCSV() {
+                    const csv = this.generateCSV();
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `can_messages_${new Date().toISOString()}.csv`;
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                },
+                
+                generateCSV() {
+                    const headers = ['ID', 'Timestamp', 'Direction', 'COB-ID', 'Type', 'DLC', 'Data'];
+                    const rows = this.filteredMessages.map(msg => [
+                        msg.id,
+                        msg.timestamp,
+                        msg.direction,
+                        msg.cob_id,
+                        msg.type,
+                        msg.dlc,
+                        msg.data_bytes
+                    ]);
+                    
+                    const csvContent = [
+                        headers.join(','),
+                        ...rows.map(row => row.join(','))
+                    ].join('\n');
+                    
+                    return csvContent;
+                },
+                
+                formatTimestamp(timestamp) {
+                    const date = new Date(timestamp);
+                    return date.toLocaleTimeString('es-ES', { 
+                        hour: '2-digit', 
+                        minute: '2-digit', 
+                        second: '2-digit',
+                        fractionalSecondDigits: 3
+                    });
+                },
+                
+                get filteredMessages() {
+                    return this.messages.filter(msg => {
+                        if (this.filterType && msg.type !== this.filterType) return false;
+                        if (this.filterDirection && msg.direction !== this.filterDirection) return false;
+                        if (this.filterCobId && !msg.cob_id.toLowerCase().includes(this.filterCobId.toLowerCase())) return false;
+                        return true;
+                    });
+                }
+            };
+        }
+    </script>
+</body>
+</html>
