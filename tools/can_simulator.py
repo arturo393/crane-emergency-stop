@@ -109,6 +109,10 @@ class R13FSimulator:
         self.actual_velocity = 0
         self.target_position = 0
         self.actual_position = 0
+        
+        # Historial de mensajes CAN (para Web UI)
+        self.message_history = []
+        self.max_message_history = 100
 
         logger.info(f"Simulador R13 F inicializado: Node ID={node_id}, Channel={channel}, Batch Mode={batch_mode}")
 
@@ -154,6 +158,22 @@ class R13FSimulator:
         if self.bus:
             self.bus.shutdown()
         logger.info("Simulador detenido")
+    
+    def _log_message(self, msg: can.Message, is_rx: bool = False):
+        """
+        Registrar mensaje en historial para Web UI
+        
+        Args:
+            msg: Mensaje CAN
+            is_rx: True si es recibido (RX), False si es transmitido (TX)
+        """
+        # Agregar atributo de dirección al mensaje
+        msg.is_rx = is_rx
+        
+        # Agregar al historial (buffer circular)
+        self.message_history.append(msg)
+        if len(self.message_history) > self.max_message_history:
+            self.message_history.pop(0)
 
     def _heartbeat_task(self):
         """Enviar heartbeat cada 500ms"""
@@ -172,6 +192,7 @@ class R13FSimulator:
                 )
 
                 self.bus.send(msg)
+                self._log_message(msg, is_rx=False)  # TX
                 self.stats['heartbeats_sent'] += 1
 
                 if not self.batch_mode and self.stats['heartbeats_sent'] % 20 == 0:
@@ -236,6 +257,7 @@ class R13FSimulator:
             )
 
             self.bus.send(msg)
+            self._log_message(msg, is_rx=False)  # TX
             self.stats['pdo_sent'] += 1
 
             if not self.batch_mode:
@@ -269,6 +291,7 @@ class R13FSimulator:
             )
 
             self.bus.send(msg)
+            self._log_message(msg, is_rx=False)  # TX
 
             if not self.batch_mode:
                 logger.debug(f"TPDO2 enviado: Mode={op_mode}, Temp={temperature}°C")
@@ -282,6 +305,7 @@ class R13FSimulator:
             try:
                 msg = self.bus.recv(timeout=0.1)
                 if msg:
+                    self._log_message(msg, is_rx=True)  # RX
                     self._process_message(msg)
             except Exception as e:
                 logger.error(f"Error recibiendo mensaje: {e}")
@@ -399,6 +423,7 @@ class R13FSimulator:
                 )
 
                 self.bus.send(msg)
+                self._log_message(msg, is_rx=False)  # TX
 
                 if not self.batch_mode:
                     logger.debug(f"SDO Upload: index=0x{index:04X}, value={value}")
@@ -412,6 +437,7 @@ class R13FSimulator:
                     is_extended_id=False
                 )
                 self.bus.send(msg)
+                self._log_message(msg, is_rx=False)  # TX
 
         except Exception as e:
             logger.error(f"Error en SDO upload: {e}")
@@ -444,6 +470,7 @@ class R13FSimulator:
                         is_extended_id=False
                     )
                     self.bus.send(msg)
+                    self._log_message(msg, is_rx=False)  # TX
 
                     if not self.batch_mode:
                         logger.debug(f"SDO Download: index=0x{index:04X}, value={value}")
@@ -457,6 +484,7 @@ class R13FSimulator:
                         is_extended_id=False
                     )
                     self.bus.send(msg)
+                    self._log_message(msg, is_rx=False)  # TX
 
         except Exception as e:
             logger.error(f"Error en SDO download: {e}")
