@@ -1,0 +1,75 @@
+name: JIRA Sync - Revisión Automática de Tareas
+
+on:
+  # Ejecutar diariamente a las 9 AM
+  schedule:
+    - cron: '0 9 * * *'
+  
+  # Ejecutar manualmente cuando se necesite
+  workflow_dispatch:
+  
+  # Ejecutar en cada push a main/clean-main
+  push:
+    branches:
+      - main
+      - clean-main
+
+jobs:
+  sync-jira:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Instalar dependencias JIRA
+        run: |
+          pip install -r jira/requirements-jira.txt
+      
+      - name: Verificar estado de tareas JIRA
+        env:
+          JIRA_URL: ${{ secrets.JIRA_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
+        run: |
+          python jira/jira_manager.py --action verify-all > jira-status.txt
+          cat jira-status.txt
+      
+      - name: Generar reporte de progreso
+        env:
+          JIRA_URL: ${{ secrets.JIRA_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
+        run: |
+          python jira/scripts/generate_progress_report.py > JIRA_PROGRESS_REPORT.md
+      
+      - name: Commit reporte si hay cambios
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if [ -f JIRA_PROGRESS_REPORT.md ]; then
+            git add JIRA_PROGRESS_REPORT.md
+            
+            if ! git diff --staged --quiet; then
+              git commit -m "chore(jira): Actualización automática reporte de progreso"
+              git push
+            fi
+          fi
+      
+      - name: Crear issue si hay tareas bloqueadas
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JIRA_URL: ${{ secrets.JIRA_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
+        run: |
+          python jira/scripts/check_blocked_tasks.py
