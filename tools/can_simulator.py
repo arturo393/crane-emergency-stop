@@ -113,6 +113,21 @@ class R13FSimulator:
         # Historial de mensajes CAN (para Web UI)
         self.message_history = []
         self.max_message_history = 100
+        
+        # Callbacks para eventos (para integración con Event Logger)
+        self.event_callbacks = []
+        
+        # Contadores de diagnóstico mejorados
+        self.diagnostics = {
+            'last_heartbeat': None,
+            'last_pdo_rx': None,
+            'last_pdo_tx': None,
+            'last_sdo': None,
+            'bus_errors': 0,
+            'timeout_errors': 0,
+            'state_changes': 0,
+            'emergency_events': []
+        }
 
         logger.info(f"Simulador R13 F inicializado: Node ID={node_id}, Channel={channel}, Batch Mode={batch_mode}")
 
@@ -194,6 +209,7 @@ class R13FSimulator:
                 self.bus.send(msg)
                 self._log_message(msg, is_rx=False)  # TX
                 self.stats['heartbeats_sent'] += 1
+                self.diagnostics['last_heartbeat'] = time.time()
 
                 if not self.batch_mode and self.stats['heartbeats_sent'] % 20 == 0:
                     logger.debug(f"Heartbeat: {self.stats['heartbeats_sent']}")
@@ -201,6 +217,7 @@ class R13FSimulator:
             except Exception as e:
                 logger.error(f"Error enviando heartbeat: {e}")
                 self.stats['errors'] += 1
+                self.diagnostics['bus_errors'] += 1
 
             time.sleep(0.5)
 
@@ -259,12 +276,14 @@ class R13FSimulator:
             self.bus.send(msg)
             self._log_message(msg, is_rx=False)  # TX
             self.stats['pdo_sent'] += 1
+            self.diagnostics['last_pdo_tx'] = time.time()
 
             if not self.batch_mode:
                 logger.debug(f"TPDO1 enviado: Status=0x{status_word:04X}, Vel={velocity}")
 
         except Exception as e:
             logger.error(f"Error enviando TPDO1: {e}")
+            self.diagnostics['bus_errors'] += 1
 
     def _send_tpdo2(self):
         """Enviar TPDO2 - Información adicional"""
@@ -375,6 +394,7 @@ class R13FSimulator:
         subindex = data[3]
 
         self.stats['sdo_requests'] += 1
+        self.diagnostics['last_sdo'] = time.time()
 
         if not self.batch_mode:
             logger.debug(f"SDO Request: cmd=0x{command:02X}, index=0x{index:04X}, sub={subindex}")
@@ -492,13 +512,25 @@ class R13FSimulator:
     def _handle_rpdo1(self, data):
         """Manejar RPDO1 - Comandos de control"""
         try:
+            self.diagnostics['last_pdo_rx'] = time.time()
+            
             if len(data) >= 2:
                 # Control Word (primeros 2 bytes)
                 control_word = data[0] | (data[1] << 8)
                 logger.warning(f"[RPDO1] COB-ID=0x{self.pdo_data['rpdo1']['cob_id']:03X}, Control=0x{control_word:04X}, Estado actual={self.device_state.name}, Raw={data.hex()}")
 
                 # Procesar Control Word siempre
+                prev_state = self.device_state.name
                 self._process_control_word(control_word)
+                
+                # Notificar si hubo cambio de estado
+                if prev_state != self.device_state.name:
+                    self._notify_event('state_change', {
+                        'timestamp': time.time(),
+                        'prev_state': prev_state,
+                        'new_state': self.device_state.name,
+                        'control_word': f"0x{control_word:04X}"
+                    })
 
                 # Target Velocity (bytes 2-5, si están presentes)
                 if len(data) >= 6:
@@ -512,15 +544,27 @@ class R13FSimulator:
 
         except Exception as e:
             logger.error(f"Error procesando RPDO1: {e}")
+            self.diagnostics['bus_errors'] += 1
 
     def _handle_emergency_stop(self, data):
         """Manejar parada de emergencia"""
         self.stats['emergency_stops'] += 1
+        prev_state = self.device_state.name
         self.device_state = DeviceState.QUICK_STOP_ACTIVE
         self.target_velocity = 0
         self._update_status_word()
+        
+        emergency_event = {
+            'timestamp': time.time(),
+            'type': 'EMERGENCY_STOP',
+            'prev_state': prev_state,
+            'data': data.hex() if hasattr(data, 'hex') else str(data)
+        }
+        self.diagnostics['emergency_events'].append(emergency_event)
+        self.diagnostics['state_changes'] += 1
 
         logger.warning("⚠️  PARADA DE EMERGENCIA ACTIVADA")
+        self._notify_event('emergency_stop', emergency_event)
 
         # Enviar confirmación por PDO
         self._send_tpdo1()
@@ -548,6 +592,7 @@ class R13FSimulator:
             if control_word == 0x0007 and self.device_state in [DeviceState.SWITCH_ON_DISABLED, DeviceState.QUICK_STOP_ACTIVE]:
                 logger.warning(f"[DEBUG] Forzando transición: {prev_state} → READY_TO_SWITCH_ON por Control=0x0007")
                 self.device_state = DeviceState.READY_TO_SWITCH_ON
+                self.diagnostics['state_changes'] += 1
                 self._update_status_word()
                 logger.info(f"Transición forzada: {prev_state} → READY_TO_SWITCH_ON por 0x0007")
                 return
@@ -555,22 +600,28 @@ class R13FSimulator:
             # Reset fault tiene máxima prioridad
             if reset_fault and self.device_state == DeviceState.FAULT:
                 self.device_state = DeviceState.SWITCH_ON_DISABLED
+                self.diagnostics['state_changes'] += 1
                 self._update_status_word()
                 return
 
-            # Quick Stop: Control Word 0x0002 (solo Enable Voltage, Quick Stop activo)
+            # Quick Stop: Control Word sin bit 2 (Quick Stop = 0)
             # Cuando bit 2 (Quick Stop) está en 0, activar QUICK_STOP_ACTIVE
             if not quick_stop:
                 if self.device_state in [DeviceState.OPERATION_ENABLED, DeviceState.SWITCHED_ON]:
+                    logger.warning(f"[DEBUG] Quick Stop detectado: Control=0x{control_word:04X}, Estado={prev_state}")
                     self.device_state = DeviceState.QUICK_STOP_ACTIVE
                     self.target_velocity = 0
+                    self.diagnostics['state_changes'] += 1
                     self._update_status_word()
+                    logger.info(f"Transición Quick Stop: {prev_state} → QUICK_STOP_ACTIVE")
                     return
 
             # Control Word 0x0002 específico (Emergency Stop común)
             if control_word == 0x0002:
+                logger.warning(f"[DEBUG] Emergency Stop (0x0002): {prev_state} → QUICK_STOP_ACTIVE")
                 self.device_state = DeviceState.QUICK_STOP_ACTIVE
                 self.target_velocity = 0
+                self.diagnostics['state_changes'] += 1
                 self._update_status_word()
                 return
 
@@ -633,6 +684,9 @@ class R13FSimulator:
 
                 if not changed:
                     break
+                
+                if changed:
+                    self.diagnostics['state_changes'] += 1
 
                 transitions += 1
 
@@ -757,20 +811,97 @@ class R13FSimulator:
             'stats': self.stats.copy()
         }
 
+    def register_event_callback(self, callback):
+        """
+        Registrar callback para eventos importantes del simulador
+        
+        Args:
+            callback: Función que recibe (event_type, event_data)
+        """
+        self.event_callbacks.append(callback)
+    
+    def _notify_event(self, event_type, event_data):
+        """
+        Notificar evento a todos los callbacks registrados
+        
+        Args:
+            event_type: Tipo de evento ('state_change', 'fault', 'emergency', etc.)
+            event_data: Datos del evento
+        """
+        for callback in self.event_callbacks:
+            try:
+                callback(event_type, event_data)
+            except Exception as e:
+                logger.error(f"Error en callback de evento: {e}")
+    
+    def get_diagnostics(self):
+        """
+        Obtener información de diagnóstico completa
+        
+        Returns:
+            dict: Información de diagnóstico del simulador
+        """
+        uptime = time.time() - self.stats['start_time']
+        
+        return {
+            'uptime_seconds': uptime,
+            'device_state': self.device_state.name,
+            'operation_mode': self.operation_mode.name,
+            'status_word': f"0x{self.object_dictionary[0x6041]['value']:04X}",
+            'control_word': f"0x{self.object_dictionary[0x6040]['value']:04X}",
+            'heartbeats_sent': self.stats['heartbeats_sent'],
+            'pdo_sent': self.stats['pdo_sent'],
+            'sdo_requests': self.stats['sdo_requests'],
+            'emergency_stops': self.stats['emergency_stops'],
+            'errors': self.stats['errors'],
+            'last_heartbeat': self.diagnostics.get('last_heartbeat'),
+            'last_pdo_rx': self.diagnostics.get('last_pdo_rx'),
+            'last_pdo_tx': self.diagnostics.get('last_pdo_tx'),
+            'last_sdo': self.diagnostics.get('last_sdo'),
+            'bus_errors': self.diagnostics['bus_errors'],
+            'timeout_errors': self.diagnostics['timeout_errors'],
+            'state_changes': self.diagnostics['state_changes'],
+            'emergency_events': self.diagnostics['emergency_events'][-5:],  # Últimos 5
+            'actual_velocity': int(self.actual_velocity),
+            'target_velocity': self.target_velocity,
+            'actual_position': int(self.actual_position),
+            'target_position': self.target_position
+        }
+    
     def simulate_fault(self):
         """Simular un fault para testing"""
         with self.state_lock:
+            prev_state = self.device_state.name
             self.device_state = DeviceState.FAULT
             self._update_status_word()
+            self.diagnostics['state_changes'] += 1
+            
+            fault_event = {
+                'timestamp': time.time(),
+                'type': 'FAULT_SIMULATED',
+                'prev_state': prev_state,
+                'new_state': 'FAULT'
+            }
+            self.diagnostics['emergency_events'].append(fault_event)
+            
             logger.warning("🔴 FAULT SIMULADO MANUALMENTE")
+            self._notify_event('fault', fault_event)
 
     def clear_fault(self):
         """Limpiar fault simulado"""
         with self.state_lock:
             if self.device_state == DeviceState.FAULT:
+                prev_state = self.device_state.name
                 self.device_state = DeviceState.SWITCH_ON_DISABLED
                 self._update_status_word()
+                self.diagnostics['state_changes'] += 1
+                
                 logger.info("🟢 FAULT LIMPIADO")
+                self._notify_event('fault_cleared', {
+                    'timestamp': time.time(),
+                    'prev_state': prev_state,
+                    'new_state': 'SWITCH_ON_DISABLED'
+                })
 
 
 def main():

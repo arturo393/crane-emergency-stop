@@ -53,11 +53,11 @@ def test_state_transitions(simulator):
     print(f"  Después 0x000F: {state['device_state']}")
     assert state['device_state'] == 'OPERATION_ENABLED'
 
-    # Quick Stop (0x0006 = 0000 0000 0000 0110)
-    print("  Enviando Control Word 0x0006 (Quick Stop)...")
-    simulator._process_control_word(0x0006)
+    # Quick Stop (0x0002 = 0000 0000 0000 0010) - Solo Enable Voltage, sin Quick Stop bit
+    print("  Enviando Control Word 0x0002 (Quick Stop)...")
+    simulator._process_control_word(0x0002)
     state = simulator.get_state()
-    print(f"  Después 0x0006: {state['device_state']}")
+    print(f"  Después 0x0002: {state['device_state']}")
     assert state['device_state'] == 'QUICK_STOP_ACTIVE'
 
     print("✅ Transiciones de estado correctas")
