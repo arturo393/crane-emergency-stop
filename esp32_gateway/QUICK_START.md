@@ -199,10 +199,11 @@ idf.py menuconfig
 
 ## 📚 Próximos Pasos
 
-1. **Con Hardware Real**: Conecta el K13 F y prueba comandos
-2. **Simulador**: Usa `tools/can_simulator.py` para testing
-3. **Web UI**: Conecta el BL335 Gateway y usa `src/web_ui/`
-4. **Avanzado**: Re-habilita Ethernet/WiFi/OTA cuando sea necesario
+1. **Testing sin Hardware**: Usa tests nativos en `test/native/` (ver `test/native/README.md`)
+2. **Con Hardware Real**: Conecta el K13 F y prueba comandos
+3. **BL335 Gateway**: Conecta vía TCP para control remoto
+4. **Web UI**: Usa `src/web_ui/` para monitoreo visual
+5. **Avanzado**: Re-habilita Ethernet/WiFi/OTA cuando sea necesario
 
 ## 🆘 Soporte
 
