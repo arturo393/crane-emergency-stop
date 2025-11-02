@@ -2618,6 +2618,163 @@ class JiraManager:
         print(f"   • Due Date field (duedate): ✅ Actualizado")
         print(f"\n💡 Ahora las fechas están en campos dedicados, no en descripción")
 
+    def action_complete_task(self):
+        """Marcar tarea como completada con comentario detallado"""
+        print("\n✅ COMPLETAR TAREA EN JIRA")
+        print("=" * 70)
+        
+        # Configuración de la tarea a completar
+        task_key = 'GAT-10'
+        
+        # Obtener tarea
+        try:
+            issue = self.jira.issue(task_key)
+            print(f"📋 Tarea: {task_key} - {issue.fields.summary}")
+            print(f"   Estado actual: {issue.fields.status.name}")
+            
+            # Verificar si ya está Done
+            if issue.fields.status.name == 'Done':
+                print(f"   ⚠️  La tarea ya está en estado Done")
+                return
+            
+            # Buscar transición a Done
+            transitions = self.jira.transitions(issue)
+            done_transition = next((t for t in transitions if t['name'] == 'Done'), None)
+            
+            if not done_transition:
+                print(f"   ❌ No se encontró transición a Done")
+                print(f"   Transiciones disponibles: {[t['name'] for t in transitions]}")
+                return
+            
+            # Transición a Done
+            self.jira.transition_issue(issue, done_transition['id'])
+            print(f"   ✅ Transición a Done exitosa")
+            
+            # Agregar comentario detallado
+            comment = '''*Simulador R13 F Mejorado - Completado*
+
+✨ *Nuevas Funcionalidades:*
+• Sistema de diagnósticos completo (21 campos de información)
+• Sistema de callbacks para eventos en tiempo real
+• Tracking automático de cambios de estado
+• Logging de eventos de emergencia (historial últimos 5)
+• Timestamps de diagnóstico para todas las operaciones
+
+🐛 *Bugs Corregidos:*
+• Control Word 0x0006 - transición Quick Stop corregida (ahora usa 0x0002)
+• Logging mejorado con información detallada de depuración
+• Manejo correcto de transiciones de estado CiA 402
+
+🧪 *Testing Completo:*
+• 15/15 tests pasando (100%)
+• 8 tests básicos (funcionalidad core)
+• 7 tests mejorados (nuevas features)
+• Suite: test_simulator.py + tests/test_simulator_enhanced.py
+
+📚 *Documentación Creada:*
+• docs/SIMULATOR_ENHANCED.md (guía completa de mejoras)
+• Ejemplos de integración con Event Logger
+• Ejemplos de integración con Web UI
+• Guías de uso para callbacks y diagnósticos
+
+🔧 *Código Modificado:*
+• tools/can_simulator.py (+180 líneas)
+  - Método: register_event_callback()
+  - Método: get_diagnostics()
+  - Mejorado: simulate_fault() con eventos
+  - Mejorado: clear_fault() con notificaciones
+  - Mejorado: _process_control_word() con tracking
+  - Mejorado: _handle_emergency_stop() con logging
+  
+• tests/test_simulator_enhanced.py (nuevo, 230 líneas)
+  - 7 nuevos tests para features avanzadas
+
+• test_simulator.py (corrección bug Quick Stop)
+
+📊 *Métricas de Mejora:*
+• Diagnósticos: 7 campos → 21 campos (+200%)
+• Tests: 8 → 15 (+87%)
+• Event tracking: ❌ → ✅
+• Callbacks: ❌ → ✅
+
+🎯 *Listo para Integración:*
+• Compatible con EventLogger (src/core/event_logger.py)
+• Listo para Web UI (historial de mensajes)
+• Listo para Desktop GUI (diagnósticos en tiempo real)
+
+*Fecha completado: 31 de octubre de 2025*'''
+            
+            self.jira.add_comment(issue, comment)
+            print(f"   ✅ Comentario agregado con detalles completos")
+            
+            # Actualizar descripción con estado completado
+            current_desc = issue.fields.description or ''
+            
+            if '🚀 EN PROGRESO' in current_desc:
+                updated_desc = current_desc.replace('🚀 EN PROGRESO', '✅ COMPLETADO')
+                updated_desc = updated_desc.replace('Estado: 🚀 EN PROGRESO', 'Estado: ✅ COMPLETADO 100%')
+                
+                # Agregar resumen de completación al inicio
+                completion_summary = '''✅ COMPLETADO - Simulador R13 F mejorado con funcionalidades avanzadas.
+
+📊 RESULTADO FINAL:
+• 15/15 tests pasando (100%)
+• +180 líneas de código (mejoras)
+• Sistema de diagnósticos completo
+• Callbacks para eventos en tiempo real
+• Documentación completa en docs/SIMULATOR_ENHANCED.md
+
+'''
+                
+                updated_desc = completion_summary + updated_desc
+                
+                issue.update(fields={'description': updated_desc})
+                print(f"   ✅ Descripción actualizada con estado completado")
+            
+            # Resumen final
+            print(f"\n" + "=" * 70)
+            print(f"✅ TAREA {task_key} COMPLETADA EXITOSAMENTE")
+            print(f"   • Estado: {issue.fields.status.name}")
+            print(f"   • Comentario: Agregado con detalles completos")
+            print(f"   • Descripción: Actualizada")
+            
+        except Exception as e:
+            print(f"\n❌ Error completando tarea: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def action_add_worklog_gat10(self):
+        """Agregar worklog simple a GAT-10"""
+        print("\n⏰ AGREGANDO WORKLOG A GAT-10")
+        print("=" * 50)
+        
+        task_key = 'GAT-10'
+        
+        try:
+            task = self.jira.issue(task_key)
+            print(f"📋 Tarea: {task_key} - {task.fields.summary}")
+            
+            # Agregar un worklog simple de 4 horas
+            worklog_time = '4h'
+            worklog_desc = 'Mejoras simulador R13 F: diagnostics, callbacks, tests, docs'
+            worklog_date = datetime(2025, 10, 31, 14, 0)  # 31 oct, 14:00
+            
+            self.jira.add_worklog(
+                issue=task_key,
+                timeSpent=worklog_time,
+                comment=worklog_desc,
+                started=worklog_date
+            )
+            
+            print(f"✅ Worklog agregado:")
+            print(f"   • Tiempo: {worklog_time}")
+            print(f"   • Fecha: {worklog_date.strftime('%d %b %Y %H:%M')}")
+            print(f"   • Descripción: {worklog_desc}")
+            print(f"\n✅ WORKLOG COMPLETADO")
+            
+        except Exception as e:
+            print(f"❌ Error agregando worklog: {e}")
+
 def main():
     """Función principal"""
     parser = argparse.ArgumentParser(
@@ -2636,7 +2793,7 @@ Ejemplos de uso:
     
     parser.add_argument(
         '--action',
-        choices=['import', 'cleanup', 'assign', 'schedule', 'check', 'diagnose', 'add-worklogs', 'import-dual', 'clean-all', 'consolidate', 'auto-consolidate', 'deep-analysis', 'verify-all', 'simplify-dual', 'create-consolidated', 'update-dates', 'sync-status', 'check-fields', 'migrate-dates'],
+        choices=['import', 'cleanup', 'assign', 'schedule', 'check', 'diagnose', 'add-worklogs', 'import-dual', 'clean-all', 'consolidate', 'auto-consolidate', 'deep-analysis', 'verify-all', 'simplify-dual', 'create-consolidated', 'update-dates', 'sync-status', 'check-fields', 'migrate-dates', 'complete-task', 'add-worklog-gat10'],
         required=True,
         help='Acción a realizar'
     )
@@ -2685,6 +2842,10 @@ Ejemplos de uso:
         manager.action_check_fields()
     elif args.action == 'migrate-dates':
         manager.action_migrate_dates()
+    elif args.action == 'complete-task':
+        manager.action_complete_task()
+    elif args.action == 'add-worklog-gat10':
+        manager.action_add_worklog_gat10()
     elif args.action == 'diagnose':
         manager.action_diagnose()
     
