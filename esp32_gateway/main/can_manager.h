@@ -27,6 +27,12 @@ public:
     esp_err_t init(int tx_pin, int rx_pin, uint32_t bitrate = 250000);
     
     /**
+     * @brief Detener y desinstalar CAN bus
+     * @return ESP_OK si exitoso
+     */
+    esp_err_t stop();
+    
+    /**
      * @brief Enviar mensaje CAN
      * @param id ID del mensaje
      * @param data Datos a enviar
@@ -43,20 +49,6 @@ public:
      */
     esp_err_t receive_message(twai_message_t* message, uint32_t timeout_ms);
     
-    /**
-     * @brief Enviar heartbeat CANopen
-     * @param node_id ID del nodo
-     * @return ESP_OK si exitoso
-     */
-    esp_err_t send_heartbeat(uint8_t node_id);
-    
-    /**
-     * @brief Iniciar tarea de recepción en background
-     */
-    void start_receive_task();
-    
 private:
-    bool initialized;
-    
-    static void receive_task(void* arg);
+    static const char *TAG;
 };

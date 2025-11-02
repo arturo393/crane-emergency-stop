@@ -69,19 +69,17 @@ public:
 
     /**
      * @brief Inicializar Ethernet con W5500
-     * @param config Configuración de pines W5500
      * @param use_dhcp true para DHCP, false para IP estática
      * @return ESP_OK si la inicialización fue exitosa
      */
-    esp_err_t init_w5500(const W5500Config& config, bool use_dhcp = true);
+    esp_err_t init_w5500(bool use_dhcp = true);
 
     /**
      * @brief Inicializar Ethernet con LAN8720
-     * @param config Configuración de pines LAN8720
      * @param use_dhcp true para DHCP, false para IP estática
      * @return ESP_OK si la inicialización fue exitosa
      */
-    esp_err_t init_lan8720(const LAN8720Config& config, bool use_dhcp = true);
+    esp_err_t init_lan8720(bool use_dhcp = true);
 
     /**
      * @brief Configurar IP estática

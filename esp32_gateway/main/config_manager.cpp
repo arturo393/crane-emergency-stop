@@ -44,8 +44,8 @@ esp_err_t ConfigManager::load_can_config(CANConfig* config) {
     }
 
     nvs_close(handle);
-    ESP_LOGI(TAG, "Configuración CAN cargada: NodeID=0x%02X, Bitrate=%d kbps", 
-             config->node_id, config->bitrate);
+    ESP_LOGI(TAG, "Configuración CAN cargada: NodeID=0x%02X, Bitrate=%lu kbps",
+             config->node_id, (unsigned long)config->bitrate);
     return ESP_OK;
 }
 

@@ -155,10 +155,10 @@ void WiFiManager::wifi_event_handler(void* arg, esp_event_base_t event_base,
         
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STACONNECTED) {
         wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
-        ESP_LOGI(TAG, "Cliente conectado al AP, MAC: " MACSTR, MAC2STR(event->mac));
+        ESP_LOGI(TAG, "Cliente conectado al AP, ID: %d", event->aid);
         
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STADISCONNECTED) {
         wifi_event_ap_stadisconnected_t* event = (wifi_event_ap_stadisconnected_t*) event_data;
-        ESP_LOGI(TAG, "Cliente desconectado del AP, MAC: " MACSTR, MAC2STR(event->mac));
+        ESP_LOGI(TAG, "Cliente desconectado del AP, ID: %d", event->aid);
     }
 }
